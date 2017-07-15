@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
 
-  <title><![CDATA[momoto.github.io]]></title>
-  <link href="http://momoto.github.io/atom.xml" rel="self"/>
-  <link href="http://momoto.github.io/"/>
+  <title><![CDATA[bsinsintllgnc.github.io]]></title>
+  <link href="http://bsinsintllgnc.github.io/atom.xml" rel="self"/>
+  <link href="http://bsinsintllgnc.github.io/"/>
   <updated>2014-01-05T07:52:49+09:00</updated>
-  <id>http://momoto.github.io/</id>
+  <id>http://bsinsintllgnc.github.io/</id>
   <author>
-    <name><![CDATA[Seiji Momoto]]></name>
+    <name><![CDATA[Souichi Narumiya]]></name>
     
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
