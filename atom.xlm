@@ -1,0 +1,2902 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[momoto.github.io]]></title>
+  <link href="http://momoto.github.io/atom.xml" rel="self"/>
+  <link href="http://momoto.github.io/"/>
+  <updated>2014-01-05T07:52:49+09:00</updated>
+  <id>http://momoto.github.io/</id>
+  <author>
+    <name><![CDATA[Seiji Momoto]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[iOS UITableViewをつかってリストを表現する]]></title>
+    <link href="http://momoto.github.io/blog/2014/01/04/introduction-to-uitableview-in-ios/"/>
+    <updated>2014-01-04T22:27:02+09:00</updated>
+    <id>http://momoto.github.io/blog/2014/01/04/introduction-to-uitableview-in-ios</id>
+    <content type="html"><![CDATA[<p>　iOS UITableViewをつかってリストを表現してみます。iOSは7.0.3、IDEにはXcode 5.0.2を使用しています。
+この記事では、次のスクリーンショットのような簡単なアプリを動作させることを目的とします。</p>
+<p><img src="http://momoto.github.io/blog/images/2014-01-04-introduction-to-uitableview-in-ios/01-uitableview-demo.png" title="&#34;iOS - libsqliteDemo スクリーンショット&#34;" alt="&#34;iOS - libsqliteDemo スクリーンショット&#34;"></p>
+<!-- more -->
+<p>　まず、リストを表示させたい画面のView Controllerに、UITableViewのインスタンスを作成します。
+インスタンスの作成には、ストーリーボードを使用する方法とView Controllerだけで記述する方法とがありますが、
+ここではストーリーボードを使用する方法でインスタンスを作成していきます。</p>
+<p>　ストーリーボードを使用する場合は、
+(1) オブジェクトライブラリからTable Viewをえらんで、対象のシーン（View Controller）の中に追加
+(2) 追加したTable Viewのオブジェクトを、View Controllerのアウトレットプロパティとして接続、までの操作をXcodeのGUIですすめていきます。
+オブジェクトライブラリにはTable View Controllerというオブジェクトも用意されていますが、
+既存のコントローラの中にTable Viewを組込むのであればTable View Controllerは使用しません（コントローラが増えてしまうので）。</p>
+<p><img src="http://momoto.github.io/blog/images/2014-01-04-introduction-to-uitableview-in-ios/02-mainstoryboard.png" title="ストーリーボードのコネクションズインスペクタ画面" ></p>
+<p>　次に、View Controllerの定義部（.h）にうつって、View ControllerはUITableViewDataSourceプロトコルを採用するように、親クラス名の後に<code>&lt;UITableViewDataSource&gt;</code>を加えます。
+また、ストーリーボードで接続したTable Viewがプロパティとして定義されているかどうかを確かめておきます。ここでは、TableViewオブジェクトのプロパティ名を<code>tv</code>としました。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>#import &lt;UIKit/UIKit.h&gt;
+</span><span class='line'>
+</span><span class='line'>@interface ViewController : UIViewController &lt;UITableViewDataSource&gt;
+</span><span class='line'>
+</span><span class='line'>@property (weak, nonatomic) IBOutlet UITableView *tv;
+</span><span class='line'>
+</span><span class='line'>@end</span></code></pre></td></tr></table></div></figure>
+<p>　プロトコルの採用に伴って、View Controllerの実装部（.m）には<code>numberOfRowsInSection</code>と<code>cellForRowAtIndexPath</code>のふたつのメソッドの実装が必要になります。
+このメソッドが実装されていない間は、<code>Method 'メソッド名' in protocol not implemented</code>というSemantic Issueが現れているはずなので、
+ひとまず次のようにメソッドを実装して、<code>viewDidLoad</code>などには<code>self.tv.dataSource = self;</code>の１行を加えておきます。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>- (void)viewDidLoad
+</span><span class='line'>{
+</span><span class='line'>    [super viewDidLoad];
+</span><span class='line'>    // Do any additional setup after loading the view.
+</span><span class='line'>
+</span><span class='line'>    // Table ViewのデータソースにView Controller自身を設定する
+</span><span class='line'>    self.tv.dataSource = self;
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+</span><span class='line'>{
+</span><span class='line'>    // Table Viewの行数を返す
+</span><span class='line'>    return 5;
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+</span><span class='line'>{
+</span><span class='line'>    UITableViewCell *tvcell = [tableView dequeueReusableCellWithIdentifier: @"cid"];
+</span><span class='line'>    if (tvcell == nil) {
+</span><span class='line'>        tvcell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault
+</span><span class='line'>                                        reuseIdentifier: @"cid"];
+</span><span class='line'>    }
+</span><span class='line'>    // Table Viewの各行の情報を、UITableViewCellのオブジェクトとして返す
+</span><span class='line'>    tvcell.textLabel.text = [[NSString alloc] initWithFormat:@"%d行目のセル", indexPath.row + 1];
+</span><span class='line'>    return tvcell;
+</span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
+<p>　この状態でビルドしてみると、５行のリストを表現できるようになりました。</p>
+<p><img src="http://momoto.github.io/blog/images/2014-01-04-introduction-to-uitableview-in-ios/03-uitableview-demo.png"></p>
+<p>　ここまでのコードを基に、セルの情報を配列に格納し、セルの挿入と削除ができるボタンを加えてみます。
+再びストーリーボードに戻り、セル操作のイベントハンドラになるボタンをView Controllerに追加します。</p>
+<p><img src="http://momoto.github.io/blog/images/2014-01-04-introduction-to-uitableview-in-ios/04-mainstoryboard.png"></p>
+<p>　View Controllerの定義部では、セル情報を格納する配列<code>cells</code>というプロパティを新たに定義します。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>#import &lt;UIKit/UIKit.h&gt;
+</span><span class='line'>
+</span><span class='line'>@interface SampleController : UIViewController &lt;UITableViewDataSource&gt;
+</span><span class='line'>
+</span><span class='line'>@property (weak, nonatomic) IBOutlet UITableView *tv;
+</span><span class='line'>@property NSMutableArray *cells;
+</span><span class='line'>
+</span><span class='line'>- (IBAction)insertCell:(id)sender;
+</span><span class='line'>- (IBAction)deleteAll:(id)sender;
+</span><span class='line'>
+</span><span class='line'>@end</span></code></pre></td></tr></table></div></figure>
+<p>　View Controllerの実装部では、それぞれのメソッドを次のように変更します。
+<code>insertCell</code>と<code>deleteAll</code>のメソッドでは、配列操作のあとに<code>[selv.tv reloadData]</code>でTable Viewをリロードするように指示しています。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>- (void)viewDidLoad {
+</span><span class='line'>    [super viewDidLoad];
+</span><span class='line'>    self.cells = [NSMutableArray array];
+</span><span class='line'>    self.tv.dataSource = self;
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>- (IBAction)insertCell:(id)sender {
+</span><span class='line'>    [self.cells addObject: [[NSString alloc] initWithFormat:
+</span><span class='line'>                            @"%d行目のセル", [self.cells count] + 1]];
+</span><span class='line'>    [self.tv reloadData];
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>- (IBAction)deleteAll:(id)sender {
+</span><span class='line'>    self.cells = [NSMutableArray array];
+</span><span class='line'>    [self.tv reloadData];
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+</span><span class='line'>    return [self.cells count];
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+</span><span class='line'>    UITableViewCell *tvcell = [tableView dequeueReusableCellWithIdentifier: @"cid"];
+</span><span class='line'>    if (tvcell == nil) {
+</span><span class='line'>        tvcell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault
+</span><span class='line'>                                        reuseIdentifier: @"cid"];
+</span><span class='line'>    }
+</span><span class='line'>    tvcell.textLabel.text = [self.cells objectAtIndex: indexPath.row];
+</span><span class='line'>    return tvcell;
+</span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
+<p>　セル情報を配列に格納することで、アプリの中でセルの追加/削除を操作できるようになりました。</p>
+<p><img src="http://momoto.github.io/blog/images/2014-01-04-introduction-to-uitableview-in-ios/05-uitableview-demo.png"></p>
+<h4>参考</h4>
+<ul>
+<li><a href="https://bitbucket.org/seijimomoto/ios-libsqlitedemo">bitbucket.org/seijimomoto iOS &ndash; libsqlDemo</a></li>
+<li><a href="https://developer.apple.com/jp/devcenter/ios/library/documentation/TableView_iPhone.pdf">developer.apple.com iOS Table View プログラミングガイド</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Postfix 2.6.6をCentOS 6にインストールする]]></title>
+    <link href="http://momoto.github.io/blog/2013/11/23/installing-postfix-2-dot-6-6-on-centos-6-dot-3/"/>
+    <updated>2013-11-23T17:01:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/11/23/installing-postfix-2-dot-6-6-on-centos-6-dot-3</id>
+    <content type="html"><![CDATA[<p>　RHEL 6に標準で搭載されているPostfix 2.6.6をつかって、スタンドアロンのMTAを設定するまでの手順をまとめています。
+OSはRHELクローンのCentOS 6.3を使用しています。</p>
+<p>　注意点として、SMTPサーバが不正中継に利用されないように、リレー制限の慎重な設定が必要になります。
+この記事ではサーバからメールを送信できることと、外部からメールをリレーできないことまでを確認します。
+受け取ったメールの配送やメールボックスへのアクセス（POPやIMAP）については扱っていません。</p>
+<!-- more -->
+<h3>1. postfixパッケージの確認</h3>
+<p>　postfixパッケージがシステムにインストールされているかどうか、を<code>yum list installed postfix</code>で確認します。
+もし、インストールされていなければ<code>yum install postfix</code>でインストールすることができます。
+ソフトウェアライセンスは<a href="http://www.ibm.com/developerworks/opensource/library/os-i18n2/os-ipl.html">IPL</a>になるので、
+とくに商用利用の責任において<a href="http://www.gnu.org/copyleft/gpl.html">GPL</a>と異なる部分があります。</p>
+<pre><code>$ yum list installed postfix
+Installed Packages
+postfix.x86_64                 2:2.6.6-2.2.el6_1                 @anaconda-CentOS-201207061011.x86_64/6.3
+</code></pre>
+<p>　postfixパッケージの設定ファイルは<code>rpm -qc postfix</code>で確認することができます。</p>
+<table class="table">
+<caption>表１　postfixパッケージの設定ファイル</caption>
+<thead>
+<tr><th>ファイルの名前</th><th>説明</th></tr>
+</thead>
+<tbody>
+<tr><th>/etc/pam.d/smtp.postfix</th><td>PAM (Pluggable Authentication Modules)の設定</td></tr>
+<tr><th>/etc/postfix/access</th><td>SMTPサーバのアクセステーブル</td></tr>
+<tr><th>/etc/postfix/canonical</th><td>canonicalテーブルの書式</td></tr>
+<tr><th>/etc/postfix/generic</th><td>genericテーブルの書式</td></tr>
+<tr><th>/etc/postfix/header_checks</th><td>正規表現による内容検査の設定</td></tr>
+<tr><th>/etc/postfix/main.cf</th><td>基本的な設定</td></tr>
+<tr><th>/etc/postfix/master.cf</th><td>デーモンプロセスの定義</td></tr>
+<tr><th>/etc/postfix/relocated</th><td>relocatedテーブルの書式</td></tr>
+<tr><th>/etc/postfix/transport</th><td>transportテーブルの書式</td></tr>
+<tr><th>/etc/postfix/virtual</th><td>仮想エイリアステーブルの書式</td></tr>
+<tr><th>/etc/sasl2/smtpd.conf</th><td>Cyrus SASLの設定</td></tr>
+</tbody>
+</table>
+<h3>2. Postfixの設定</h3>
+<p>　用途に応じて設定を変更していきます。
+設定できる項目は600以上あるようですが、単純な用途であれば、ほとんどの項目は初期値のまま利用できます。</p>
+<table class="table">
+<caption>表２　/etc/postfix/main.cfの基本的な設定</caption>
+<thead><tr><th>変数名</th><th>初期値</th><th>説明</th></tr></thead>
+<tbody>
+<tr><th>myhostname</th><td>hostname.localdomain</td><td>メールシステムのFQDN。この変数は他の多くの設定で参照されます。</td></tr>
+<tr><th>mydomain</th><td>localdomain</td><td>メールシステムのインターネットドメイン名。この変数は他の多くの設定で参照されます。</td></tr>
+<tr><th>myorigin</th><td>$myhostname</td><td>メールシステムから送信されたメールにおいて、差出人のメールアドレスにつかわれるドメイン。</td></tr>
+<tr><th>inet_interfaces</th><td>all</td><td>メールシステムが通信できるネットワークアドレス。ここで許可されていないアドレスとは、メールの受信も送信もできません。</td></tr>
+<tr><th>mydestination</th><td>$myhostname, localhost.$mydomain, localhost</td><td>メールシステムに到達したメールにおいて、自分宛のメールとみなすドメインのリスト。</td></tr>
+<tr><th>mynetworks</th><td>127.0.0.0/8</td><td>メールシステムがリレーを許可するSMTPクライアントのネットワークアドレスのリスト。</td></tr>
+</tbody>
+</table>
+<p>　現時点の設定は<code>postconf</code>コマンドで確認することもできます。
+オプションに<code>-d</code>を付けると設定の初期値、<code>-n</code>を付けると初期値から変更した設定だけを表示します。</p>
+<h3>3. Postfixの起動/再起動</h3>
+<p>　設定を変更した後は、<code>postfix check</code>で設定や権限を検証し、サーバを起動または再起動して変更を反映させます。
+<code>postfix reload</code>でも設定を反映させることができますが、<code>inet_interfaces</code>など一部設定の変更にはサーバ再起動が必要です。</p>
+<pre><code>$ sudo service postfix check
+                                            [  OK  ]
+$ sudo service postfix status
+master is stopped
+$ sudo service postfix start
+Starting postfix:                           [  OK  ]
+</code></pre>
+<p>　サービスの自動起動を有効にする場合は<code>chkconfig</code>をつかいます。</p>
+<pre><code>$ chkconfig --list postfix
+postfix         0:off   1:off   2:off   3:off   4:off   5:off   6:off
+$ sudo chkconfig postfix on
+$ chkconfig --list postfix
+postfix         0:off   1:off   2:on    3:on    4:on    5:on    6:off
+</code></pre>
+<h3>4. メールの送信テスト</h3>
+<h4>4-1. Sendmail互換インタフェース</h4>
+<p>　PostfixのSendmail互換インタフェースをつかって、メールサーバのホストからメールを送信してみます。
+Sendmail互換インタフェースのパスは<code>sendmail_path</code>で設定されています。</p>
+<pre><code>$ sendmail somebody@example.com
+from: user@hostname.localdomain
+to: somebody@example.com
+subject: test email
+this is a test message.
+.
+</code></pre>
+<p>　送信したメールのログは<code>/var/log/maillog</code>から、ローカルのメールボックスへ配送されたメールは<code>/var/mail/{ユーザ名}</code>（mail_spool_directory）から確認することができます。</p>
+<h4>4-2. Telnet</h4>
+<p>　Telnetをつかって、mynetworksで指定していないネットワークアドレスから、relay_domains (mydestination)にないドメインへメールをリレーできないことを確認します。</p>
+<pre><code>$ telnet &lt;SMTP_HOST&gt; 25
+Trying &lt;SMTP_HOST&gt;...
+Connected to &lt;SMTP_HOST&gt;.
+Escape character is '^]'.
+220 hostname.localdomain ESMTP Postfix
+HELO hostname.localdomain
+250 hostname.localdomain
+MAIL FROM: user@hostname.localdomain
+250 2.1.0 Ok
+RCPT TO: somebody@example.com
+554 5.7.1 &lt;somebody@example.com&gt;: Relay access denied
+</code></pre>
+<p>　この例では、SMTP応答コード554 (Transaction failed)を返されて、リレーが失敗しています。</p>
+<p>　オープンリレーとなっていないかどうかの確認は<a href="http://www.rbl.jp/">RBL.JP</a>の<a href="http://www.rbl.jp/svcheck.php">Third Party Relay Check</a>からも確認することができます。</p>
+<h3>参考</h3>
+<ul>
+<li><a href="https://access.redhat.com/site/documentation/ja-JP/Red_Hat_Enterprise_Linux/6/html/Deployment_Guide/ch-Mail_Servers.html">第16章 メールサーバー &ndash; Red Hat Customer Portal</a></li>
+<li><a href="https://access.redhat.com/site/documentation/ja-JP/Red_Hat_Enterprise_Linux/6/html/Managing_Confined_Services/chap-Managing_Confined_Services-Postfix.html">第13章 Postfix &ndash; Red Hat Customer Portal</a></li>
+<li><a href="http://www.postfix.org/STANDARD_CONFIGURATION_README.html">Postfix Standard Configuration Examples</a></li>
+<li><a href="http://www.postfix-jp.info/trans-2.3/jhtml/STANDARD_CONFIGURATION_README.html">Postfix 標準設定の例 (2.3.x)</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[YumをつかってApache HTTP Server 2.2をインストールする]]></title>
+    <link href="http://momoto.github.io/blog/2013/10/13/installing-apache-http-server-2-dot-2-15-using-yum/"/>
+    <updated>2013-10-13T11:29:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/10/13/installing-apache-http-server-2-dot-2-15-using-yum</id>
+    <content type="html"><![CDATA[<p>　パッケージ管理システムのYumをつかって、Apache HTTP Server 2.2.15をインストールします。OSはCentOS 6を使用しています。</p>
+<!-- more -->
+<p>　RHEL 6互換のCentOSの標準リポジトリではhttpdパッケージでApache HTTP Serverが提供されています。パッケージの情報は<code>yum info &lt;パッケージ名&gt;</code>で調べることができます。
+パッケージ情報が示すとおり、httpdパッケージ（i686）からインストールできるApacheのバージョンは<strong>2.2.15</strong>になります。</p>
+<pre><code>$ yum info httpd
+Available Packages
+Name        : httpd
+Arch        : i686
+Version     : 2.2.15
+Release     : 29.el6.centos
+Size        : 828 k
+Repo        : updates
+Summary     : Apache HTTP Server
+URL         : http://httpd.apache.org/
+License     : ASL 2.0
+Description : The Apache HTTP Server is a powerful, efficient, and extensible
+            : web server.
+</code></pre>
+<p>　インストールには<code>yum install &lt;パッケージ名&gt;</code>を実行するだけで、パッケージ管理システムが依存関係を解決し、必要なパッケージと共にインストールが完了します。</p>
+<pre><code>$ sudo yum install httpd
+Setting up Install Process
+...
+Installed:
+  httpd.i686 0:2.2.15-29.el6.centos
+Dependency Installed:
+  apr.i686 0:1.3.9-5.el6_2                    apr-util.i686 0:1.3.9-3.el6_0.1
+  apr-util-ldap.i686 0:1.3.9-3.el6_0.1        httpd-tools.i686 0:2.2.15-29.el6.centos
+  mailcap.noarch 0:2.1.31-2.el6
+Complete!
+</code></pre>
+<p>　httpdパッケージが提供しているファイルは<code>rpm -ql httpd</code>で一覧を得られますが、出力は300行以上に及ぶためディレクトリごとにファイルの役割をみてみます。</p>
+<pre><code>$ rpm -ql httpd | gawk -F/ '{print "/"$2"/"$3}' | uniq -c
+     10 /etc/httpd
+      1 /etc/logrotate.d
+      2 /etc/rc.d
+      2 /etc/sysconfig
+     66 /usr/lib
+      8 /usr/sbin
+     12 /usr/share
+      1 /var/cache
+      1 /var/lib
+      1 /var/log
+      1 /var/run
+    252 /var/www
+</code></pre>
+<table class="table">
+<caption>（表）httpdパッケージが提供するファイルやディレクトリの概要</caption>
+<tbody>
+<tr><td>/etc/httpd/</td><td>conf/httpd.confなど設定ファイルを格納しているディレクトリ（サーバルート）</td></tr>
+<tr><td>/etc/logrotate.d/httpd</td><td>httpdのログローテーションの設定</td></tr>
+<tr><td>/etc/rc.d/init.d/{htcacheclean, httpd}</td><td>httpdとhtcachecleanの起動スクリプト</td></tr>
+<tr><td>/etc/sysconfig/{htcacheclean, httpd}</td><td>preforkかworkerの切り替え等、サービスの設定ファイル</td></tr>
+<tr><td>/usr/lib/httpd/modules/mod_*.so</td><td>Apacheモジュールの共有ライブラリファイル</td></tr>
+<tr><td>/usr/sbin/{apachectl, httpdなど}</td><td>Apache各種コマンドの実行ファイル</td></tr>
+<tr><td>/usr/share/{doc/, man/}</td><td>Apacheのドキュメントやmanページ</td></tr>
+<tr><td>/var/cache/mod_proxy/</td><td>mod_disk_cacheのCacheRootディレクトリ</td></tr>
+<tr><td>/var/lib/dav/</td><td>mod_davのロックデータベースディレクトリ</td></tr>
+<tr><td>/var/log/httpd/</td><td>httpdのログを格納するディレクトリ</td></tr>
+<tr><td>/var/run/httpd/</td><td>httpdのプロセスIDファイルを格納するディレクトリ</td></tr>
+<tr><td>/var/www/</td><td>HTMLファイル等のコンテンツを格納しているディレクトリ（/var/www/htmlがデフォルトのドキュメントルート）</td></tr>
+</tbody>
+</table>
+<p>　httpd-2.2.15-29.el6.centos.i686では、実行ファイルのhttpd（prefork）とhttpd.workerはそれぞれ次のようにコンパイルされています。</p>
+<pre><code>$ /usr/sbin/httpd -V
+...
+Server compiled with....
+ -D APACHE_MPM_DIR="server/mpm/prefork"
+ -D APR_HAS_SENDFILE
+ -D APR_HAS_MMAP
+ -D APR_HAVE_IPV6 (IPv4-mapped addresses enabled)
+ -D APR_USE_SYSVSEM_SERIALIZE
+ -D APR_USE_PTHREAD_SERIALIZE
+ -D SINGLE_LISTEN_UNSERIALIZED_ACCEPT
+ -D APR_HAS_OTHER_CHILD
+ -D AP_HAVE_RELIABLE_PIPED_LOGS
+ -D DYNAMIC_MODULE_LIMIT=128
+ -D HTTPD_ROOT="/etc/httpd"
+ -D SUEXEC_BIN="/usr/sbin/suexec"
+ -D DEFAULT_PIDLOG="run/httpd.pid"
+ -D DEFAULT_SCOREBOARD="logs/apache_runtime_status"
+ -D DEFAULT_LOCKFILE="logs/accept.lock"
+ -D DEFAULT_ERRORLOG="logs/error_log"
+ -D AP_TYPES_CONFIG_FILE="conf/mime.types"
+ -D SERVER_CONFIG_FILE="conf/httpd.conf"
+$ /usr/sbin/httpd.worker -V
+...
+Server compiled with....
+ -D APACHE_MPM_DIR="server/mpm/worker"
+ -D APR_HAS_SENDFILE
+ -D APR_HAS_MMAP
+ -D APR_HAVE_IPV6 (IPv4-mapped addresses enabled)
+ -D APR_USE_SYSVSEM_SERIALIZE
+ -D APR_USE_PTHREAD_SERIALIZE
+ -D SINGLE_LISTEN_UNSERIALIZED_ACCEPT
+ -D APR_HAS_OTHER_CHILD
+ -D AP_HAVE_RELIABLE_PIPED_LOGS
+ -D DYNAMIC_MODULE_LIMIT=128
+ -D HTTPD_ROOT="/etc/httpd"
+ -D SUEXEC_BIN="/usr/sbin/suexec"
+ -D DEFAULT_SCOREBOARD="logs/apache_runtime_status"
+ -D DEFAULT_ERRORLOG="logs/error_log"
+ -D AP_TYPES_CONFIG_FILE="conf/mime.types"
+ -D SERVER_CONFIG_FILE="conf/httpd.conf"
+</code></pre>
+<p>　serviceユーティリティをつかってhttpdを起動させたあと、curlでウェブサーバの動作を確認してみます。</p>
+<pre><code>$ sudo service httpd start
+                                                           [  OK  ]
+$ curl -D - -s -o /dev/null localhost
+HTTP/1.1 403 Forbidden
+Date: Sun, 13 Oct 2013 09:08:07 GMT
+Server: Apache/2.2.15 (CentOS)
+Accept-Ranges: bytes
+Content-Length: 5039
+Connection: close
+Content-Type: text/html; charset=UTF-8
+</code></pre>
+<p>　デフォルトの設定のままではDocumentRoot（/var/www/html）のDirectoryIndex（index.html）が見つからず、/etc/httpd/conf.d/welcome.confでは<code>Options -Indexes</code>が設定されているため、
+HTTPステータスコードは<code>403 Forbidden</code>、メッセージボディには/var/www/error/noindex.htmlを応答しています。</p>
+<p>　/var/www/html/index.htmlを作成したあとに再度リクエストしてみると<code>200 OK</code>を応答するようになります。</p>
+<pre><code>$ echo '&lt;html&gt;&lt;body&gt;It works!&lt;/body&gt;&lt;/html&gt;' | sudo tee /var/www/html/index.html
+&lt;html&gt;&lt;body&gt;It works!&lt;/body&gt;&lt;/html&gt;
+$ curl -D - localhost
+HTTP/1.1 200 OK
+Date: Sun, 13 Oct 2013 09:12:35 GMT
+Server: Apache/2.2.15 (CentOS)
+Last-Modified: Sun, 13 Oct 2013 09:12:16 GMT
+ETag: "20584-24-4e8a167dd7f45"
+Accept-Ranges: bytes
+Content-Length: 36
+Connection: close
+Content-Type: text/html; charset=UTF-8
+&lt;html&gt;&lt;body&gt;It works!&lt;/body&gt;&lt;/html&gt;
+</code></pre>
+<h4>参考</h4>
+<ul>
+<li><a href="https://access.redhat.com/site/documentation/ja-JP/Red_Hat_Enterprise_Linux/6/html/Deployment_Guide/ch-Web_Servers.html">Red Hat Enterprise Linux 6 Deployment Guide 第15章 Web サーバー – Red Hat Customer Portal</a></li>
+<li><a href="https://access.redhat.com/site/documentation/ja-JP/Red_Hat_Enterprise_Linux/6/html/Managing_Confined_Services/chap-Managing_Confined_Services-The_Apache_HTTP_Server.html">Red Hat Enterprise Linux 6.4 Managing Confined Services 第3章 Apache HTTP Server – Red Hat Customer Portal</a></li>
+<li><a href="http://httpd.apache.org/docs/2.2/ja/">Apache HTTP サーバ バージョン 2.2 ドキュメント &ndash; Apache HTTP サーバ</a></li>
+<li><a href="http://www.atmarkit.co.jp/ait/articles/0508/02/news102.html">実用 Apache 2.0運用・管理術（1）：Apache 2.0の必須設定と基本セキュリティ対策 &ndash; ＠IT</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[EPEL 6のリポジトリを有効化する]]></title>
+    <link href="http://momoto.github.io/blog/2013/10/13/enabling-extra-packages-for-enterprise-linux-repository/"/>
+    <updated>2013-10-13T11:09:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/10/13/enabling-extra-packages-for-enterprise-linux-repository</id>
+    <content type="html"><![CDATA[<p>　CentOS 6でExtra Packages for Enterprise Linux 6（EPEL 6）リポジトリを有効化します。
+このリポジトリを有効化することでRHEL 6やそのクローンでもFedoraパッケージを利用できるようになります。</p>
+<!-- more -->
+<p>　まず、パッケージの検証につかう公開鍵をRPMデータベースにインポートします。
+EPEL6でつかう公開鍵は<a href="https://fedoraproject.org/keys">Fedora Project &ndash; List of GPG keys</a>の<a href="https://fedoraproject.org/static/0608B895.txt">RPM-GPG-KEY-EPEL-6</a>です。</p>
+<pre><code>$ sudo rpm --import https://fedoraproject.org/static/0608B895.txt
+</code></pre>
+<p>　次に、EPEL6のミラーからRPMパッケージをインストールして、リポジトリの有効化は完了です。</p>
+<pre><code>$ sudo rpm -Uvh http://ftp.iij.ad.jp/pub/linux/fedora/epel/6/i386/epel-release-6-8.noarch.rpm
+Retrieving http://ftp.iij.ad.jp/pub/linux/fedora/epel/6/i386/epel-release-6-8.noarch.rpm
+Preparing...                ########################################### [100%]
+   1:epel-release           ########################################### [100%]
+</code></pre>
+<p>　RPMファイルのURLは、ミラーに<a href="http://www.iij.ad.jp/">IIJ</a>を選んだ場合だと次のようになります。</p>
+<ul>
+<li><strong>i386</strong> <a href="http://ftp.iij.ad.jp/pub/linux/fedora/epel/6/i386/epel-release-6-8.noarch.rpm">http://ftp.iij.ad.jp/pub/linux/fedora/epel/6/i386/epel-release-6-8.noarch.rpm</a></li>
+<li><strong>x86_64</strong> <a href="http://ftp.iij.ad.jp/pub/linux/fedora/epel/6/x86_64/epel-release-6-8.noarch.rpm">http://ftp.iij.ad.jp/pub/linux/fedora/epel/6/x86_64/epel-release-6-8.noarch.rpm</a></li>
+</ul>
+<p>　追加したEPELのリポジトリが有効になっているかどうかは<code>yum repolist</code>をつかって確認することができます。</p>
+<pre><code>$ yum repolist
+repo id           repo name                                               status
+base              CentOS-6 - Base                                         4,802
+epel              Extra Packages for Enterprise Linux 6 - i386            8,113
+extras            CentOS-6 - Extras                                          12
+updates           CentOS-6 - Updates                                      1,000
+repolist: 13,927
+</code></pre>
+<p>　yumオプションに<code>--enablerepo=epel</code>を指定したときだけEPELを利用し、普段は無効化にしておきたい場合は/etc/yum.repos.d/epel.repoの<code>enabled=1</code>を<code>enabled=0</code>に変更しておきます。</p>
+<pre><code>$ sudo vi /etc/yum.repos.d/epel.repo
+[epel]
+name=Extra Packages for Enterprise Linux 6 - $basearch
+#baseurl=http://download.fedoraproject.org/pub/epel/6/$basearch
+mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=epel-6&amp;arch=$basearch
+failovermethod=priority
+enabled=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-6
+</code></pre>
+<h4>参考</h4>
+<ul>
+<li><a href="http://fedoraproject.org/wiki/EPEL">EPEL &ndash; FedoraProject</a></li>
+<li><a href="http://wiki.centos.org/AdditionalResources/Repositories">AdditionalResources/Repositories &ndash; CentOS Wiki</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Nagios Core 4.0.0をソースからインストールする]]></title>
+    <link href="http://momoto.github.io/blog/2013/09/22/installing-nagios-core-4-dot-0-0-from-source/"/>
+    <updated>2013-09-22T22:32:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/09/22/installing-nagios-core-4-dot-0-0-from-source</id>
+    <content type="html"><![CDATA[<p>　Nagios Core 4.0.0とNagios Plugins 1.4.16をソースからインストールします。OSはCentOS 6.4を使用しています。</p>
+<!-- more -->
+<ol>
+<li><h4>ソースコードを取得する</h4>
+<p>　<a href="http://www.nagios.org/download">www.nagios.org</a>からNagios Core 4.0.0とNagios Plugins 1.4.16のソースコードを取得します。</p>
+<pre><code>$ cd /usr/local/src/
+$ sudo wget http://prdownloads.sourceforge.net/sourceforge/nagios/nagios-4.0.0.tar.gz
+$ sudo wget http://prdownloads.sourceforge.net/sourceforge/nagiosplug/nagios-plugins-1.4.16.tar.gz
+$ sudo tar xfz nagios-4.0.0.tar.gz
+$ sudo tar xfz nagios-plugins-1.4.16.tar.gz
+</code></pre></li>
+<li><h4>要件を満たす</h4>
+<p>　<a href="http://assets.nagios.com/downloads/nagioscore/docs/Installing_Nagios_Core_From_Source.pdf">Documentation</a>に従って、必要なパッケージをインストールします。</p>
+<pre><code># RHEL/CentOSの場合
+$ sudo yum install wget httpd php gcc glibc glibc-common gd gd-devel make net-snmp
+# Ubuntuの場合
+$ sudo apt-get install wget build-essential apache2 php5-gd libgd2-xpm libgd2-xpm-dev libapache2-mod-php5
+</code></pre>
+<p>　続いて、Nagiosのプロセスを実行するユーザとグループを用意します。</p>
+<pre><code>$ sudo useradd nagios
+$ sudo groupadd nagcmd
+$ sudo usermod -a -G nagcmd nagios
+</code></pre></li>
+<li><h4>Nagios Coreをインストールする</h4>
+<p>　ソースコードを展開したディレクトリに移ってNagios Coreをインストールしていきます。</p>
+<pre><code># cd nagios
+# RHEL/CentOSの場合
+# ./configure --with-command-group=nagcmd
+# Ubuntuの場合
+# ./configure --with-nagios-group=nagios --with-command-group=nagcmd -–with-mail=/usr/bin/sendmail
+*** Configuration summary for nagios 4.0.0 09-20-2013 ***:
+ General Options:
+ -------------------------
+        Nagios executable:  nagios
+        Nagios user/group:  nagios,nagios
+       Command user/group:  nagios,nagcmd
+             Event Broker:  yes
+        Install ${prefix}:  /usr/local/nagios
+    Install ${includedir}:  /usr/local/nagios/include/nagios
+                Lock file:  ${prefix}/var/nagios.lock
+   Check result directory:  ${prefix}/var/spool/checkresults
+           Init directory:  /etc/rc.d/init.d
+  Apache conf.d directory:  /etc/httpd/conf.d
+             Mail program:  /bin/mail
+                  Host OS:  linux-gnu
+ Web Interface Options:
+ ------------------------
+                 HTML URL:  http://localhost/nagios/
+                  CGI URL:  http://localhost/nagios/cgi-bin/
+ Traceroute (used by WAP):
+</code></pre>
+<p>　configureが終わると、Nagiosの構成の要約を表示してくれます。</p>
+<pre><code># make all
+</code></pre>
+<p>　コンパイルまで済んだら、次のmakeオプションでインストールを続けていきます。</p>
+<ul>
+<li><code>make install</code> メインプログラム、CGI、HTMLファイルをインストール</li>
+<li><code>make install-init</code> /etc/rc.d/init.dの起動スクリプトをインストール</li>
+<li><code>make install-commandmode</code> ディレクトリの権限のインストールと設定</li>
+<li><code>make install-config</code> /usr/local/nagios/etcの設定ファイルのサンプルをインストール</li>
+<li><code>make install-webconf</code> ウェブインタフェースのためのApache設定ファイルをインストール</li>
+<li><code>make install-exfoliation</code> ウェブインタフェースのExfoliationテーマをインストール</li>
+<li><code>make install-classicui</code> ウェブインタフェースのクラシックテーマをインストール</li>
+</ul>
+<p>　ウェブインタフェースのテーマは必要なければ省略できるようです。</p>
+<pre><code># make install
+# make install-init
+# make install-config
+# make install-commandmode
+# make install-webconf
+# cp -R contrib/eventhandlers/ /usr/local/nagios/libexec/
+# chown -R nagios:nagios /usr/local/nagios/libexec/eventhandlers/
+</code></pre></li>
+<li><h4>Nagios Pluginをインストールする</h4>
+<p>　ソースコードを展開したディレクトリに移ってNagios Pluginをインストールしていきます。</p>
+<pre><code># cd ../nagios-plugins-1.4.16
+# ./configure --with-nagios-user=nagios --with-nagios-group=nagios
+# make
+# make install
+</code></pre></li>
+<li><h4>NagiosとApacheを起動する</h4>
+<p>　ウェブインタフェースの認証につかうApacheのパスワードファイルを用意します。</p>
+<pre><code># htpasswd -c /usr/local/nagios/etc/htpasswd.users nagiosadmin
+New password:
+Re-type new password:
+Adding password for user nagiosadmin
+</code></pre>
+<p>　Nagiosの設定ファイルを検証した後、Nagios、Apacheを起動します。</p>
+<pre><code># /usr/local/nagios/bin/nagios -v /usr/local/nagios/etc/nagios.cfg
+# service nagios start
+nagios is stopped
+Starting nagios:                                           [  OK  ]
+# service httpd start
+                                                           [  OK  ]
+</code></pre>
+<p>　Nagiosのウェブインタフェースへアクセスして動作を確かめてみます。認証には上のhtpasswdで設定したユーザ名とパスワードを入力します。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-09-22-installing-nagios-core-4-dot-0-0-from-source/01-nagios-access.png" width="500" title="Nagios Access" ></p>
+<p><img src="http://momoto.github.io/blog/images/2013-09-22-installing-nagios-core-4-dot-0-0-from-source/02-nagios-web-interface.png" width="500" title="Nagiosのウェブインタフェース" ></p></li>
+<li><h4>自動起動を設定する</h4>
+<p>　必要に応じて、Nagiosの自動起動を設定します。</p>
+<pre><code># chkconfig --add nagios
+# chkconfig nagios on
+# chkconfig httpd on
+</code></pre></li>
+</ol>
+<h2>参考</h2>
+<ul>
+<li><a href="http://assets.nagios.com/downloads/nagioscore/docs/Installing_Nagios_Core_From_Source.pdf">Nagios – Installing Nagios Core From Source</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Apache HTTP ServerのSPDYサポートを有効化する]]></title>
+    <link href="http://momoto.github.io/blog/2013/09/08/enabling-spdy-for-apache-http-server/"/>
+    <updated>2013-09-08T01:00:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/09/08/enabling-spdy-for-apache-http-server</id>
+    <content type="html"><![CDATA[<p>　mod_spdyをつかってApache HTTP ServerのSPDYサポートを有効化します。mod_spdyは<a href="http://code.google.com/p/mod-spdy/">code.google.com</a>で配布されています。</p>
+<!-- more -->
+<h4>mod_spdyのRPMパッケージ 64ビットをインストールする場合</h4>
+<pre><code>$ wget https://dl-ssl.google.com/dl/linux/direct/mod-spdy-beta_current_x86_64.rpm
+$ rpm -U mod-spdy-*.rpm
+</code></pre>
+<p>　at, httpd, mod_sslなどに依存しているようです。</p>
+<h4>mod-spdyが提供するファイル</h4>
+<pre><code>$ rpm -ql mod-spdy-beta
+/etc/cron.daily/mod-spdy
+/etc/httpd/conf.d/load_ssl_with_npn.conf
+/etc/httpd/conf.d/spdy.conf
+/usr/lib64/httpd/modules/mod_spdy.so
+/usr/lib64/httpd/modules/mod_ssl_with_npn.so
+</code></pre>
+<p>　設定ファイルはload_ssl_with_npn.confとspdy.confです。SSL/TLSが有効になっていること、spdy.confの<code>SpdyEnabled</code>がonになっていること等を確認したらApacheを再起動します。</p>
+<pre><code>$ apachectl -M | grep -E "spdy|ssl"
+ ssl_module (shared)
+ spdy_module (shared)
+Syntax OK
+$ /etc/init.d/httpd restart
+Stopping httpd:                                            [  OK  ]
+Starting httpd:                                            [  OK  ]
+</code></pre>
+<h4>画像表示の比較</h4>
+<p>　同じドメインの画像ファイル20個をブラウザに表示する様子を簡単に比較してみます。
+正確な比較ではありませんが、リクエストのタイムラインが変化している様子をブラウザの開発ツールからも確認できます。</p>
+<ul>
+<li><h5>通常のHTTPS</h5>
+<p>　左がFirefoxのネットワークモニタ、右がChrome DevToolsのネットワークパネルです。</p>
+<p><img class="left" src="http://momoto.github.io/blog/images/2013-09-08-enabling-spdy-for-apache-http-server/0101-ssl-with-firefox.png" width="500">
+<img src="http://momoto.github.io/blog/images/2013-09-08-enabling-spdy-for-apache-http-server/0102-ssl-with-chrome.png" width="500"></p></li>
+<li><h5>SPDYが有効</h5>
+<p>　通常のHTTPSからSPDYを有効に切り替えて、同じコンテンツをリクエストした様子です。</p>
+<p><img class="left" src="http://momoto.github.io/blog/images/2013-09-08-enabling-spdy-for-apache-http-server/0201-spdy-with-firefox.png" width="500">
+<img src="http://momoto.github.io/blog/images/2013-09-08-enabling-spdy-for-apache-http-server/0202-spdy-with-chrome.png" width="500"></p>
+<p>　Firefoxでは画像ファイルのSending（リクエスト送信にかかる時間）がほとんどなくなってWaiting（イニシャルレスポンスを待つ時間）に入れ替わっています。
+Chromeでは画像ファイルのサイズが0Bになっています（code.google.comのChromiumプロジェクトにバグとして報告されているようです<a href="https://code.google.com/p/chromium/issues/detail?id=154706">Issue #154706</a>）。</p></li>
+<li><h5>SPDYが有効（画像ファイルをサーバープッシュ）</h5>
+<p>　画像ファイルをX-Associated-Contentでサーバープッシュしています。</p>
+<p><img class="left" src="http://momoto.github.io/blog/images/2013-09-08-enabling-spdy-for-apache-http-server/0301-server-push-with-firefox.png" width="500">
+<img src="http://momoto.github.io/blog/images/2013-09-08-enabling-spdy-for-apache-http-server/0302-server-push-with-chrome.png" width="500"></p>
+<p>　Chromeでは画像ファイルがCacheからの読み込みとなってタイムラインが大幅に短くなりました（キャッシュはちゃんと消してアクセスしたと思います・・・）。
+X-Associated-Contentを追加した代わりにHTMLファイルの読み込み時間は伸びています。</p></li>
+</ul>
+<h4>参考</h4>
+<ul>
+<li><a href="https://developers.google.com/speed/spdy/">SPDY &ndash; SPDY &mdash; Google Developers</a></li>
+<li><a href="http://code.google.com/p/mod-spdy/wiki/OptimizingForSpdy">How to tune your server to serve pages over SPDY efficiently &ndash; Apache SPDY module &ndash; Google Project Hosting</a></li>
+<li><a href="http://www.iij.ad.jp/company/development/tech/activities/spdy/">Web表示の高速化を実現するSPDYとHTTP/2.0の標準化 | 最新の技術動向 | IIJ</a></li>
+<li><a href="https://developer.mozilla.org/ja/docs/Tools/Network_Monitor">ネットワークモニタ &ndash; 開発ツール | MDN</a></li>
+<li><a href="https://developers.google.com/chrome-developer-tools/docs/network">Evaluating network performance &ndash; Chrome DevTools &mdash; Google Developers</a></li>
+</ul>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=4774150363" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=477415783X" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Apache HTTP ServerのSSL/TLSサポートを有効化する]]></title>
+    <link href="http://momoto.github.io/blog/2013/09/08/enabling-ssl-for-apache-http-server/"/>
+    <updated>2013-09-08T00:00:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/09/08/enabling-ssl-for-apache-http-server</id>
+    <content type="html"><![CDATA[<p>　mod_sslをつかってApache HTTP ServerのSSL/TLSサポートを有効化します。
+SSLを有効にするために必要なRSA秘密鍵と公開鍵証明書のうち、公開鍵証明書は第三者の認証局に署名してもらうのが通常ですが、この記事では検証のため自己発行証明書をつかいます。</p>
+<!-- more -->
+<p>　手順としては(1) RSA秘密鍵を生成、(2) 証明書署名要求（CSR）を作成、(3) 公開鍵証明書を発行、その後、ウェブサーバでSSL/TLSを設定します。(3)の「公開鍵証明書の発行」は本来、認証局で行う手順です。</p>
+<ol>
+<li><h3>OpenSSLをつかってRSA秘密鍵と証明書署名要求を用意する（申請者）</h3>
+<p>　RSA秘密鍵の生成には<code>openssl genrsa -out &lt;秘密鍵ファイル名&gt; &lt;鍵長&gt;</code>のコマンドをつかいます。</p>
+<pre><code>$ openssl genrsa -out localhost.key 2048
+Generating RSA private key, 2048 bit long modulus
+...................................................+++
+...............+++
+e is 65537 (0x10001)
+</code></pre>
+<p>　2013年9月現在、1024bit鍵長のCSRの受付を停止した認証局もあるように、鍵長は2048bitが一般的であるようです。</p>
+<ul>
+<li><a href="https://www.verisign.co.jp/ssl/about/20120531.html">旧来仕様のサーバIDおよび公開鍵長1024bitのCSRの受付停止について｜日本ベリサイン</a></li>
+<li><a href="https://jp.globalsign.com/knowledge/ssl/use/1024bit.html">1024bitの証明書について｜グローバルサイン (旧日本ジオトラスト株式会社)</a></li>
+</ul>
+<p>　<code>openssl genrsa</code>のオプションによって、生成したRSA秘密鍵を別の暗号方式で暗号化することや、乱数生成につかわれるシード値をファイルで指定することもできます。
+RSA秘密鍵をAESやDESなどの共通鍵暗号方式で暗号化する場合は秘密鍵にパスフレーズを設定します。このパスフレーズはウェブサーバの起動時や証明書署名要求ファイル作成時に入力が必要になります。</p>
+<p>　続いて、RSA秘密鍵をもとに証明書署名要求ファイルを作成します。OpenSSLコマンドは<code>openssl req -new -key &lt;秘密鍵ファイル名&gt; -out &lt;証明書署名要求ファイル名&gt;</code>をつかいます。
+CSRの作成にはディスティングイッシュネームの入力が必要です。</p>
+<pre><code>$ openssl req -new -key localhost.key -out localhost.csr
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [XX]:JP
+State or Province Name (full name) []:Tokyo
+Locality Name (eg, city) [Default City]:Shinjuku
+Organization Name (eg, company) [Default Company Ltd]:Localhost, Local Area Network
+Organizational Unit Name (eg, section) []:
+Common Name (eg, your name or your server's hostname) []:localhost
+Email Address []:
+Please enter the following 'extra' attributes
+to be sent with your certificate request
+A challenge password []:
+An optional company name []:
+</code></pre>
+<ul>
+<li><a href="https://www.verisign.co.jp/ssl/help/faq/110041/">ディスティングイッシュネームとは何ですか | 日本ベリサイン</a></li>
+<li><a href="https://jp.globalsign.com/support/faq/74.html">ディスティングイッシュネームとは何ですか | グローバルサイン</a></li>
+<li><a href="https://crosstrust.co.jp/support/faq/faq08/a002">ディスティングイッシュネームとは何ですか？ | クロストラスト </a></li>
+</ul>
+</li>
+<li><h3>公開鍵証明書を発行する（認証局）</h3>
+<p>　証明書署名要求ファイルと認証局の私有鍵をもとに公開鍵証明書を発行します。
+OpenSSLコマンドは<code>openssl ca -in &lt;証明書署名要求ファイル名&gt; -out &lt;公開鍵証明書ファイル名&gt;</code>をつかいます。</p>
+<pre><code>$ openssl ca -in localhost.csr -out localhost.self-signed.crt
+Using configuration from /etc/pki/tls/openssl.cnf
+Enter pass phrase for /etc/pki/CA/private/cakey.pem:
+Check that the request matches the signature
+Signature ok
+Certificate Details:
+        Serial Number:
+            ec:65:47:48:ff:6d:ff:cc
+        Validity
+            Not Before: Sep  7 00:00:00 2013 GMT
+            Not After : Sep  7 00:00:00 2014 GMT
+        Subject:
+            countryName               = JP
+            stateOrProvinceName       = Tokyo
+            organizationName          = Localhost, Local Area Network
+            commonName                = localhost
+        X509v3 extensions:
+            X509v3 Basic Constraints:
+                CA:TRUE
+            Netscape Comment:
+                OpenSSL Generated Certificate
+            X509v3 Subject Key Identifier:
+                02:B3:E2:99:8B:C9:E8:F2:33:A7:27:1B:FD:D6:9E:64:C9:12:D2:7E
+            X509v3 Authority Key Identifier:
+                keyid:15:F3:B6:82:FD:BB:41:AF:F2:AE:D9:BD:E1:C0:2E:B6:A5:23:C6:FA
+Certificate is to be certified until Sep  7 00:00:00 2014 GMT (365 days)
+Sign the certificate? [y/n]:y
+1 out of 1 certificate requests certified, commit? [y/n]y
+Write out database with 1 new entries
+Data Base Updated
+</code></pre>
+<p>　認証局は発行した公開鍵証明書を申請者に渡して、申請者は公開鍵証明書をウェブサーバに移動します。</p></li>
+<li><h3>mod_sslを設定する（Apache HTTP Server）</h3>
+<p>　<a href="http://www.modssl.org/source/">www.modssl.org</a>やディストリビューションからmod_sslをインストールします。</p>
+<pre><code>$ sudo yum install mod_ssl
+</code></pre>
+<p>　上記の手順で用意したRSA秘密鍵と公開鍵証明書を、Apache実行ユーザが読み込めるファイルパスに設置します。同様にパーミッションも適宜、設定します。</p>
+<pre><code>$ sudo mv localhost.key /etc/pki/tls/private/
+$ sudo mv localhost.self-signed.crt /etc/pki/tls/certs/
+$ sudo chmod 0600 /etc/pki/tls/certs/localhost.self-signed.crt
+$ sudo chmod 0600 /etc/pki/tls/private/localhost.key
+</code></pre>
+<p>　Apacheの設定ファイル（<code>&lt;ServerRoot&gt;/conf.d/ssl.conf</code>など）を編集して、SSLCertificateFileディレクティブとSSLCertificateKeyFileディレクティブを設定します。</p>
+<pre><code>SSLCertificateFile /etc/pki/tls/certs/localhost.self-signed.crt
+SSLCertificateKeyFile /etc/pki/tls/private/localhost.key
+</code></pre>
+<p>　Apacheを再起動します。RSA秘密鍵を暗号化している場合はパスフレーズの入力が必要です。</p>
+<pre><code>$ sudo apachectl -t
+Syntax OK
+$ sudo /etc/init.d/httpd restart
+Stopping httpd:                                            [  OK  ]
+Starting httpd: Apache/2.2.15 mod_ssl/2.2.15 (Pass Phrase Dialog)
+Some of your private key files are encrypted for security reasons.
+In order to read them you have to provide the pass phrases.
+Server localhost:443 (RSA)
+Enter pass phrase:
+OK: Pass Phrase Dialog successful.
+                                                           [  OK  ]
+</code></pre></li>
+</ol>
+<p>　ウェブサーバにアクセスしてみると、発行者不明（sec_error_unknown_issuer）のため接続を信頼されていませんが、接続は暗号化されているようです。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-09-08-enabling-ssl-for-apache-http-server/01-untrusted-connection.png" width="500" title="安全性を確認できない接続" ></p>
+<p><img src="http://momoto.github.io/blog/images/2013-09-08-enabling-ssl-for-apache-http-server/02-connection-encrypted.png" width="500" title="暗号化された接続" ></p>
+<p>　証明書情報を表示すると入力したディスティングイッシュネームを確認することができます。また、この記事の例では主体者と発行者が同一になっていることも確認できます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-09-08-enabling-ssl-for-apache-http-server/03-could-not-verify-this-certificate.png" width="500" title="信頼性を検証できない証明書" ></p>
+<h2>参考</h2>
+<ul>
+<li><a href="https://www.verisign.co.jp/ssl/pdf/baseline_requirements1.0_jp.pdf">CA/ブラウザフォーラム パブリック証明書の発行および管理に関する基本要件v.1.0 | www.verisign.co.jp</a></li>
+<li><a href="https://jp.globalsign.com/repository/baseline_requirements_ja.pdf">CA/ブラウザフォーラム パブリック証明書発行及びマネジメントの基本要件 ver1.0 | jp.globalsign.com</a></li>
+<li><a href="http://httpd.apache.org/docs/2.2/mod/mod_ssl.html">mod_ssl &ndash; Apache HTTP Server</a></li>
+<li><a href="http://www.openssl.org/docs/">OpenSSL: Documents, Misc</a></li>
+<li><a href="http://x68000.q-e-d.net/~68user/unix/pickup?openssl">UNIXの部屋 コマンド検索:openssl (*BSD/Linux)</a></li>
+<li><a href="https://support.mozilla.org/ja/kb/Secure%20Connection%20Failed">安全な接続ができませんでした | Firefox ヘルプ</a></li>
+</ul>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=490531822X" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=477415783X" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[CentOS 6のシステム設定を確認する]]></title>
+    <link href="http://momoto.github.io/blog/2013/09/01/system-administration-for-centos-6/"/>
+    <updated>2013-09-01T00:00:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/09/01/system-administration-for-centos-6</id>
+    <content type="html"><![CDATA[<p>　CentOS 6の基本的なシステム設定を確認します。
+ここでいうシステム設定は、地域化、ネットワーク、セキュリティ、サービス管理などの設定を対象にしています。デスクトップ環境や外観の設定は含みません。
+また、各機能については基本的な設定までを概観するにとどめて、詳細な設定までは踏み込みません。</p>
+<!-- more -->
+<h4>もくじ</h4>
+<ul>
+<li><a href="http://momoto.github.io/blog/2013/09/01/system-administration-for-centos-6/#language">言語の設定</a></li>
+<li><a href="http://momoto.github.io/blog/2013/09/01/system-administration-for-centos-6/#clock">システム時刻の設定</a></li>
+<li><a href="http://momoto.github.io/blog/2013/09/01/system-administration-for-centos-6/#keyboard">キー配列の設定</a></li>
+<li><a href="http://momoto.github.io/blog/2013/09/01/system-administration-for-centos-6/#network">ネットワークの設定</a></li>
+<li><a href="http://momoto.github.io/blog/2013/09/01/system-administration-for-centos-6/#name-resolution">名前解決の設定</a></li>
+<li><a href="http://momoto.github.io/blog/2013/09/01/system-administration-for-centos-6/#selinux">SELinuxの設定</a></li>
+<li><a href="http://momoto.github.io/blog/2013/09/01/system-administration-for-centos-6/#packet-filtering">パケットフィルタリングの設定</a></li>
+<li><a href="http://momoto.github.io/blog/2013/09/01/system-administration-for-centos-6/#auto-start-services">自動起動の設定</a></li>
+</ul>
+<!-- 地域化 -->
+<h2><span id="language">言語の設定（/etc/sysconfig/i18n）</span></h2>
+<p>　言語情報は地域、文字セットとともにLocaleとして設定します。
+現在のLocaleの設定や利用できるLocale名を表示するには<a href="http://www.gnu.org/software/libc/">GNU Cライブラリ</a>の<a href="http://www.gnu.org/software/libc/manual/html_node/Locales.html">locale</a>をつかいます。</p>
+<pre><code>$ locale
+LANG=C
+LC_CTYPE="C"
+LC_NUMERIC="C"
+LC_TIME="C"
+LC_COLLATE="C"
+LC_MONETARY="C"
+LC_MESSAGES="C"
+LC_PAPER="C"
+LC_NAME="C"
+LC_ADDRESS="C"
+LC_TELEPHONE="C"
+LC_MEASUREMENT="C"
+LC_IDENTIFICATION="C"
+LC_ALL=
+$ locale -a | grep -Ei "ja|jp"
+ja_JP
+ja_JP.eucjp
+ja_JP.ujis
+ja_JP.utf8
+japanese
+japanese.euc
+</code></pre>
+<p>　LocaleはLANG変数に設定します。
+一時的な変更であれば<code>$ export LANG=ja_JP.UTF-8</code>のようにコマンドで定義するか、永続的な変更であればファイルに変数を定義します。
+変数を定義するファイルは、システム全体に適用する場合は/etc/sysconfig/i18n、ユーザごとに適用する場合は~/.bashrcなどです。</p>
+<pre><code>$ LANG=ja_JP.UTF-8
+$ locale | sudo tee /etc/sysconfig/i18n
+LANG=ja_JP.UTF-8
+LC_CTYPE="ja_JP.UTF-8"
+LC_NUMERIC="ja_JP.UTF-8"
+LC_TIME="ja_JP.UTF-8"
+LC_COLLATE="ja_JP.UTF-8"
+LC_MONETARY="ja_JP.UTF-8"
+LC_MESSAGES="ja_JP.UTF-8"
+LC_PAPER="ja_JP.UTF-8"
+LC_NAME="ja_JP.UTF-8"
+LC_ADDRESS="ja_JP.UTF-8"
+LC_TELEPHONE="ja_JP.UTF-8"
+LC_MEASUREMENT="ja_JP.UTF-8"
+LC_IDENTIFICATION="ja_JP.UTF-8"
+LC_ALL=
+</code></pre>
+<p>　日本語を設定する場合の注意点として、Locale名はja_JP.utf8ではなくja_JP.UTF-8を使用したほうが良いようです。</p>
+<h4>参考</h4>
+<ul>
+<li><a href="http://blog.at-dk.info/2011/03/jajputf-8-vs-jajputf8.html">ただのメモ: ja_JP.UTF-8 vs ja_JP.utf8</a></li>
+<li><a href="http://www.gnu.org/software/libc/manual/html_node/Locales.html#Locales">Locales &ndash; The GNU C Library</a></li>
+</ul>
+<h2><span id="clock">システム時刻の設定（/etc/sysconfig/clock）</span></h2>
+<p>　時刻系やタイムゾーンは/etc/sysconfig/clockに設定します。また、タイムゾーン情報は<a href="https://www.iana.org/time-zones">tzdata</a>のバイナリファイルを/etc/localtimeに保存します。</p>
+<pre><code>$ sudo vi /etc/sysconfig/clock
+ZONE="Asia/Tokyo"
+UTC=false
+$ sudo ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+</code></pre>
+<h4>参考</h4>
+<ul>
+<li><a href="http://www.redhat.com/advice/tips/timezone.html">Tips &amp; Tricks: Changing timezone | Red Hat</a></li>
+<li><a href="http://www.gnu.org/software/libc/manual/html_node/Date-and-Time.html#Date-and-Time">Date and Time &ndash; The GNU C Library</a></li>
+</ul>
+<h2><span id="keyboard">キー配列の設定（/etc/sysconfig/keyboard）</span></h2>
+<p>　キー配列は/etc/sysconfig/keyboardに設定します。KEYTABLEに指定できる値は/lib/kbd/keymaps/i386/&lt;<em>配列</em>>/&lt;<em>表名</em>>.map.gzにある表名です。日本語106であればjp106を設定します。</p>
+<pre><code>$ sudo vi /etc/sysconfig/keyboard
+KEYTABLE="jp106"
+KEYBOARDTYPE="pc"
+</code></pre>
+<p>　<a href="http://www.kbd-project.org/">kbd</a>の<a href="http://www.kbd-project.org/manpages/man1/loadkeys.1.html">loadkeys</a>をつかって一時的に変更することもできます。</p>
+<pre><code>$ loadkeys jp106
+Loading /lib/kbd/keymaps/i386/qwerty/jp106.map.gz
+</code></pre>
+<p>　/etc/sysconfig/keyboardの設定はX Window Systemのキーボード設定とは異なります。</p>
+<h4>参考</h4>
+<ul>
+<li><a href="http://www.kbd-project.org/manpages/index.html">man pages | KBD</a></li>
+</ul>
+<!-- ネットワーク -->
+<h2><span id="network">ネットワークの設定（/etc/sysconfig/{network,network-scripts/}）</span></h2>
+<p>　ネットワークの設定は、ネットワークインタフェースによらないグローバルな設定とインタフェースごとに固有の設定とでファイルがわかれています。</p>
+<p>　グローバルな設定では、/etc/sysconfig/networkにホスト名やゲートウェイなどの情報を設定します。</p>
+<pre><code>$ sudo vi /etc/sysconfig/network
+NETWORKING=yes
+HOSTNAME=localhost.localdomain
+</code></pre>
+<p>　インタフェースごとの設定では、/etc/sysconfig/ifcfg-&lt;<em>インタフェース名</em>>にDHCPの利用するかどうか、DHCPを利用しない場合のIP情報などを設定します。</p>
+<pre><code>$ sudo vi /etc/sysconfig/network-scripts/ifcfg-eth0
+DEVICE="eth0"
+BOOTPROTO="dhcp"
+NM_CONTROLLED="yes"
+ONBOOT="yes"
+TYPE="Ethernet"
+</code></pre>
+<p>　設定ファイルを書き換えたらネットワークサービスを再起動して変更を反映します。</p>
+<pre><code>$ sudo service network restart
+インターフェース eth0 を終了中:                            [  OK  ]
+ループバックインターフェースを終了中                       [  OK  ]
+ループバックインターフェイスを呼び込み中                   [  OK  ]
+インターフェース eth0 を活性化中:
+eth0 のIP情報を検出中... 完了。
+                                                           [  OK  ]
+</code></pre>
+<h4>参考</h4>
+<ul>
+<li><a href="https://access.redhat.com/site/documentation/ja-JP/Red_Hat_Enterprise_Linux/6/html/Deployment_Guide/part-Networking.html">パート III. ネットワーキング – Red Hat Customer Portal</a></li>
+</ul>
+<h2><span id="name-resolution">名前解決の設定（nsswitch.conf、host.conf、hosts、resolv.conf）</span></h2>
+<ul>
+<li><p>　名前解決の方法の順序は/etc/nsswitch.confに設定します。</p>
+<pre><code>  $ sudo vi /etc/nsswitch.conf
+  ...
+  #hosts:     db files nisplus nis dns
+  hosts:      files dns
+  ...
+</code></pre>
+<p>　/etc/host.confにも同様の設定がありますが、CentOS 6ではnsswitch.confが優先されるようです（System V系とBSD系のちがい？）。</p></li>
+<li><p>　ローカルホストでのみ有効なホストテーブルは/etc/hostsに設定します。</p>
+<pre><code>  $ sudo vi /etc/hosts
+  127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+  ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+</code></pre></li>
+<li><p>　ネームサーバのIPアドレスは/etc/resolv.confに設定します。</p>
+<pre><code>  $ sudo vi /etc/resolv.conf
+  ; generated by /sbin/dhclient-script
+  nameserver 10.0.2.3
+</code></pre></li>
+</ul>
+<h4>参考</h4>
+<ul>
+<li><a href="http://linuxjm.sourceforge.jp/html/LDP_man-pages/man5/nsswitch.conf.5.html">Man page of NSSWITCH.CONF</a></li>
+<li><a href="http://linuxjm.sourceforge.jp/html/LDP_man-pages/man5/host.conf.5.html">Man page of HOST.CONF</a></li>
+<li><a href="http://linuxjm.sourceforge.jp/html/LDP_man-pages/man5/hosts.5.html">Man page of HOSTS</a></li>
+<li><a href="http://linuxjm.sourceforge.jp/html/LDP_man-pages/man5/resolver.5.html">Man page of RESOLV.CONF</a></li>
+</ul>
+<h2><span id="selinux">SELinuxの設定（/etc/sysconfig/selinux）</span></h2>
+<p>　現在のSELinuxの状態を表示するには<code>getenforce</code>をつかいます。
+SELinuxの状態はEnforcing（SELinuxが有効、ポリシーは強制される）、Permissive（SELinuxが有効、ポリシーは強制されない）、Disabled（SELinuxが無効）のいずれかです。
+ポリシーが強制されるとルールに基づいてアクセスが制限されます。強制されない場合はアクセスの制限はありませんが、ルールに反するアクセスがログに記録されます。</p>
+<pre><code>$ getenforce
+Enforcing
+</code></pre>
+<p>　一時的にEnforcing、Permissiveを切替えるには<code>setenforce</code>をつかいます。<code>setenforce 0</code>でPermissiveへ、<code>setenforce 1</code>でEnforcingへ切り替わります。</p>
+<pre><code>$ sudo setenforce 0
+$ getenforce
+Permissive
+</code></pre>
+<p>　永続的に状態を切り替えるには/etc/sysconfig/selinuxのSELINUX=&lt;<em>状態</em>>を設定して、システムを再起動します。SELinuxを無効化する場合はSELINUX=disabledを設定します。</p>
+<pre><code>$ sudo vi /etc/sysconfig/selinux
+# This file controls the state of SELinux on the system.
+# SELINUX= can take one of these three values:
+#       enforcing - SELinux security policy is enforced.
+#       permissive - SELinux prints warnings instead of enforcing.
+#       disabled - SELinux is fully disabled.
+SELINUX=disabled
+$ sudo reboot
+</code></pre>
+<p>　SELinuxには、ポリシー記述の知識がなくても変数のon/offを切り替えるだけでポリシーを変更できるブール値が用意されています。このブール値の一覧を表示するには<code>getsebool -a</code>をつかいます。</p>
+<pre><code>$ getsebool -a | head
+abrt_anon_write --&gt; off
+abrt_handle_event --&gt; off
+allow_console_login --&gt; on
+allow_cvs_read_shadow --&gt; off
+allow_daemons_dump_core --&gt; on
+...
+</code></pre>
+<p>　ブール値を変更するには<code>setsebool -P &lt;*ブール値名*&gt; &lt;*値*&gt;</code>をつかいます。</p>
+<pre><code>$ sudo setsebool -P httpd_can_network_connect_db on
+</code></pre>
+<h4>参考</h4>
+<ul>
+<li><a href="http://itpro.nikkeibp.co.jp/article/COLUMN/20070827/280411/">第一人者がやさしく教える新SELinux入門 &ndash; 第一人者がやさしく教える新SELinux入門&mdash;-目次：ITpro</a></li>
+<li><a href="http://rewse.jp/blog/p/4825">Scientific Linux 6 でのSELinux管理コマンドまとめ | 複眼中心</a></li>
+<li><a href="http://morphmorph.com/archives/103">コマンドラインでちょっとSELinux  |  MorphMorph</a></li>
+</ul>
+<h2><span id="packet-filtering">パケットフィルタリングの設定（iptables）</span></h2>
+<p>　iptables管理ツールをつかって、パケットフィルタリングのルール（Netfilterのfilterテーブル）までを簡単に見ていきます。
+この記事で扱うのはiptablesの機能のほんの一部で、その他の機能（nat、mangleやip6tables）については扱いません。</p>
+<p>　現在のパケットフィルタリングのルールを表示するには<code>iptables -L</code>をつかいます。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ sudo iptables -L
+</span><span class='line'>Chain INPUT (policy ACCEPT)
+</span><span class='line'>target     prot opt source               destination
+</span><span class='line'>ACCEPT     all  --  anywhere             anywhere            state RELATED,ESTABLISHED
+</span><span class='line'>ACCEPT     icmp --  anywhere             anywhere
+</span><span class='line'>ACCEPT     all  --  anywhere             anywhere
+</span><span class='line'>ACCEPT     tcp  --  anywhere             anywhere            state NEW tcp dpt:ssh
+</span><span class='line'>REJECT     all  --  anywhere             anywhere            reject-with icmp-host-prohibited
+</span><span class='line'>
+</span><span class='line'>Chain FORWARD (policy ACCEPT)
+</span><span class='line'>target     prot opt source               destination
+</span><span class='line'>REJECT     all  --  anywhere             anywhere            reject-with icmp-host-prohibited
+</span><span class='line'>
+</span><span class='line'>Chain OUTPUT (policy ACCEPT)
+</span><span class='line'>target     prot opt source               destination</span></code></pre></td></tr></table></div></figure>
+<p>　上の出力例は、テーブル（filter）に設定された３つのチェーン（INPUT、FORWARD、OUTPUT）と各チェーンのルール（INPUTに５行、FORWARDに１行、OUTPUTに０行）の内容を表示しています。
+この場合、OUTPUTチェーンにはルールが何も設定されておらず、OUTPUTのポリシーにはACCEPTが設定されているので、ローカルからネットワークへ出ていくパケットに適用されるのは常にACCEPTです。
+一方、INPUTチェーンのポリシーにもACCEPTが設定されていますが、INPUTにはルールが５つ設定されているので、ネットワークからローカルへ入ってくるパケットはルールのマッチオプションに一致するtargetが適用されます。</p>
+<p>　iptablesの<code>-L (--list)</code>オプションだけではルールのマッチオプションまで詳しく表示されないので、より詳しい出力を表示させるには<code>-v (--verbose)</code>オプションを追加します。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ sudo iptables -L -v
+</span><span class='line'>Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+</span><span class='line'> pkts bytes target     prot opt in     out     source               destination
+</span><span class='line'> 2290  234K ACCEPT     all  --  any    any     anywhere             anywhere            state RELATED,ESTABLISHED
+</span><span class='line'>   27  2268 ACCEPT     icmp --  any    any     anywhere             anywhere
+</span><span class='line'>   26  1560 ACCEPT     all  --  lo     any     anywhere             anywhere
+</span><span class='line'>    3   132 ACCEPT     tcp  --  any    any     anywhere             anywhere            state NEW tcp dpt:ssh
+</span><span class='line'>    1    40 REJECT     all  --  any    any     anywhere             anywhere            reject-with icmp-host-prohibited
+</span><span class='line'>
+</span><span class='line'>Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+</span><span class='line'> pkts bytes target     prot opt in     out     source               destination
+</span><span class='line'>    0     0 REJECT     all  --  any    any     anywhere             anywhere            reject-with icmp-host-prohibited
+</span><span class='line'>
+</span><span class='line'>Chain OUTPUT (policy ACCEPT 1534 packets, 283K bytes)
+</span><span class='line'> pkts bytes target     prot opt in     out     source               destination</span></code></pre></td></tr></table></div></figure>
+<p>　-L (&mdash;list)だけでは表示されていなかったpkts、bytes、in、outの列が表示されています。それぞれの列が示しているのは次のような内容です。</p>
+<ul>
+<li><strong>pkts</strong> ルールにマッチしたパケット数</li>
+<li><strong>bytes</strong> 同バイト数</li>
+<li><strong>target</strong> ルールにマッチしたパケットに対するターゲット</li>
+<li><strong>prot</strong> ルールを適用するプロトコル</li>
+<li><strong>opt</strong> パケットの断片化の区別</li>
+<li><strong>in</strong> ルールを適用する入力インタフェース</li>
+<li><strong>out</strong> ルールを適用する出力インタフェース、INPUTチェーンでは指定不可</li>
+<li><strong>source</strong> ルールを適用するパケットの送信元アドレス</li>
+<li><strong>destination</strong> ルールを適用するパケットの送信先アドレス</li>
+<li><strong>追加のマッチオプション</strong> 拡張マッチモジュール（stateやreject-withなど）</li>
+</ul>
+<p>　上記例のINPUTチェーン１行目のルールだけ見てみると、プロトコル、インタフェース、送信元・送信先のいずれも指定していませんが、
+stateモジュールによって既に接続が確立している状態（ESTABLISHED）と既存の接続に関連して新しく接続された状態（RELATED）を指定していて、
+プロトコル、インタフェース等を問わず既存の接続はACCEPTするという内容になります。</p>
+<h4>参考</h4>
+<ul>
+<li><a href="https://access.redhat.com/site/documentation/ja-JP/Red_Hat_Enterprise_Linux/6/html/Security_Guide/sect-Security_Guide-Firewalls.html">2.8. ファイアウォール – Red Hat Customer Portal</a></li>
+<li><a href="http://linuxjm.sourceforge.jp/html/iptables/man8/iptables.8.html">Man page of IPTABLES</a></li>
+<li><a href="http://ipset.netfilter.org/iptables-extensions.man.html">Man page of iptables-extensions</a></li>
+</ul>
+<h2><span id="auto-start-services">自動起動の設定（chkconfig）</span></h2>
+<p>　サービスの自動起動はchkconfigで設定します。サービスと現在の設定の一覧を表示するには<code>chkconfig --list</code>をつかいます。</p>
+<pre><code>$ chkconfig --list
+NetworkManager  0:off   1:off   2:on    3:on    4:on    5:on    6:off
+abrtd           0:off   1:off   2:off   3:on    4:off   5:on    6:off
+acpid           0:off   1:off   2:on    3:on    4:on    5:on    6:off
+anamon          0:off   1:off   2:off   3:off   4:off   5:off   6:off
+atd             0:off   1:off   2:off   3:on    4:on    5:on    6:off
+auditd          0:off   1:off   2:on    3:on    4:on    5:on    6:off
+...
+</code></pre>
+<p>　上記の一覧は一行ずつ、サービス名とどのランレベル（0〜6）で起動するか（on/off）を示しています。</p>
+<p>　サービスの自動起動を有効にするには<code>chkconfig &lt;サービス名&gt; on</code>をつかいます。無効にするには<code>chkconfig &lt;サービス名&gt; off</code>にしてください。</p>
+<pre><code>$ sudo chkconfig httpd on
+$ chkconfig --list httpd
+httpd          0:off   1:off   2:on    3:on    4:on    5:on    6:off
+</code></pre>
+<p>　ランレベルとは、システムの状態（シングルユーザモードかマルチユーザモードなど）によって切り替わる数字です。CUIのマルチユーザモードであれば3、GUIのマルチユーザモードであれば5が、CentOS 6のデフォルトです。
+ランレベルについて詳しく踏み込みませんが、/etc/inittabのコメントで少し説明されています。現在のランレベルを確認するには<code>runlevel</code>をつかいます。</p>
+<pre><code>$ tail /etc/inittab
+# Default runlevel. The runlevels used are:
+#   0 - halt (Do NOT set initdefault to this)
+#   1 - Single user mode
+#   2 - Multiuser, without NFS (The same as 3, if you do not have networking)
+#   3 - Full multiuser mode
+#   4 - unused
+#   5 - X11
+#   6 - reboot (Do NOT set initdefault to this)
+#
+id:3:initdefault:
+$ runlevel
+N 3
+</code></pre>
+<h4>参考</h4>
+<ul>
+<li><a href="https://access.redhat.com/site/documentation/ja-JP/Red_Hat_Enterprise_Linux/6/html/Deployment_Guide/s2-services-chkconfig.html">10.2.3. chkconfig &#12518;&#12540;&#12486;&#12451;&#12522;&#12486;&#12451;&#12398;&#20351;&#29992; &ndash; Red Hat Customer Portal</a></li>
+</ul>
+<!-- ## リソース管理 -->
+<h2>参考</h2>
+<ul>
+<li><a href="https://access.redhat.com/site/documentation/ja-JP/Red_Hat_Enterprise_Linux/6/html/Deployment_Guide/index.html">導入ガイド &ndash; Red Hat Customer Portal</a></li>
+<li><a href="https://access.redhat.com/site/documentation/ja-JP/Red_Hat_Enterprise_Linux/6/html/Security_Guide/index.html">セキュリティガイド – Red Hat Customer Portal</a></li>
+<li><a href="https://access.redhat.com/site/documentation/ja-JP/Red_Hat_Enterprise_Linux/6/html/Security-Enhanced_Linux/index.html">Security-Enhanced Linux &ndash; Red Hat Customer Portal</a></li>
+</ul>
+<h2>関連記事</h2>
+<ul>
+<li><a href="http://momoto.github.io/2013/04/06/install-centos-6-dot-4-i386-netinstall/">CentOS 6.4をインストールする</a></li>
+</ul>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=4774146757" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=4774158135" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=B00BWCSUYS" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=4774155934" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Vagrantをつかって仮想マシンを管理する]]></title>
+    <link href="http://momoto.github.io/blog/2013/08/28/guide-to-managing-guests-using-vagrant/"/>
+    <updated>2013-08-28T21:41:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/08/28/guide-to-managing-guests-using-vagrant</id>
+    <content type="html"><![CDATA[<p>　Vagrantをつかって仮想マシンを管理する手引きです。Vagrantを利用するにはVirtualBoxやAWSなどのプロバイダを利用できる状態である必要があります。</p>
+<!-- more -->
+<ol>
+<li><h3>試してみる</h3>
+<p>　<a href="http://www.vagrantbox.es/">Vagrantbox.es</a>で紹介されているBoxファイルから仮想マシンを新しく作成します。
+Boxファイルは次のウェブサイトでも公開されています。</p>
+<ul>
+<li><a href="http://www.vagrantup.com/">vagrantup.com</a>
+<ul>
+<li><a href="http://files.vagrantup.com/precise64.box">Ubuntu 12.04 precise 64-bit</a> (323MB)</li>
+<li><a href="http://files.vagrantup.com/precise32.box">Ubuntu 12.04 precise 32-bit</a> (299MB)</li>
+</ul>
+</li>
+<li><a href="http://cloud-images.ubuntu.com/">Ubuntu Cloud Images</a>
+<ul>
+<li><a href="http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-amd64-vagrant-disk1.box">Ubuntu 13.10 saucy 64-bit</a> (324MB)</li>
+<li><a href="http://cloud-images.ubuntu.com/vagrant/saucy/current/saucy-server-cloudimg-i386-vagrant-disk1.box">Ubuntu 13.10 saucy 32-bit</a> (324MB)</li>
+</ul>
+</li>
+<li><a href="http://nrel.github.io/vagrant-boxes/">米エネルギー省 国立再生可能エネルギー研究所（NREL）GitHub</a>
+<ul>
+<li><a href="http://developer.nrel.gov/downloads/vagrant-boxes/CentOS-6.4-x86_64-v20130731.box">CentOS 6.4 x86_64</a> (494MB)</li>
+<li><a href="http://developer.nrel.gov/downloads/vagrant-boxes/CentOS-6.4-i386-v20130731.box">CentOS 6.4 i386</a> (459MB)</li>
+</ul>
+</li>
+</ul>
+<p>　例えばFedora 18 x86 MinimalのBoxファイルをつかう場合、次のように<code>vagrant init [box-name] [box-url]</code>を実行して、Vagrantのプロジェクトを開始します。</p>
+<pre><code>$ mkdir vagrant-fedora-18
+$ cd vagrant-fedora-18/
+$ vagrant init fedora-18 http://static.stasiak.at/fedora-18-x86-2.box
+A `Vagrantfile` has been placed in this directory. You are now
+ready to `vagrant up` your first virtual environment! Please read
+the comments in the Vagrantfile as well as documentation on
+`vagrantup.com` for more information on using Vagrant.
+</code></pre>
+<p>　次に<code>vagrant up [vm-name]</code>を実行して、作成したVagrantのプロジェクトから仮想マシンを起動します。</p>
+<pre><code>vagrant-fedora-18 $ vagrant up
+Bringing machine 'default' up with 'virtualbox' provider...
+[default] Box 'fedora-18' was not found. Fetching box from specified URL for
+the provider 'virtualbox'. Note that if the URL does not have
+a box for this provider, you should interrupt Vagrant now and add
+the box yourself. Otherwise Vagrant will attempt to download the
+full box prior to discovering this error.
+Downloading or copying the box...
+Extracting box...te: 456k/s, Estimated time remaining: 0:00:01))
+Successfully added box 'fedora-18' with provider 'virtualbox'!
+[default] Importing base box 'fedora-18'...
+[default] Matching MAC address for NAT networking...
+[default] Setting the name of the VM...
+[default] Clearing any previously set forwarded ports...
+[default] Creating shared folders metadata...
+[default] Clearing any previously set network interfaces...
+[default] Preparing network interfaces based on configuration...
+[default] Forwarding ports...
+[default] -- 22 =&gt; 2222 (adapter 1)
+[default] Booting VM...
+[default] Waiting for VM to boot. This can take a few minutes.
+[default] VM booted and ready for use!
+[default] Mounting shared folders...
+[default] -- /vagrant
+</code></pre>
+<p>　仮想マシンの状態は<code>vagrant status</code>やプロバイダのユーザインタフェースから確かめることができます。</p>
+<pre><code>vagrant-fedora-18 $ vagrant status
+Current machine states:
+default                   running (virtualbox)
+</code></pre>
+<p><img src="http://momoto.github.io/blog/images/2013-08-30-guide-to-managing-guests-using-vagrant/01-verify-the-vm-booted-by-looking-at-the-virtualbox.png" width="600" title="VirtualBoxのGUIから仮想マシンの動作を確認する" ></p>
+<p>　起動している仮想マシンへSSH接続するには<code>vagrant ssh</code>を実行します。</p>
+<pre><code>$ vagrant ssh
+[vagrant@localhost ~]$
+[vagrant@localhost ~]$ cat /etc/fedora-release
+Fedora release 18 (Spherical Cow)
+</code></pre></li>
+<li><h3>Boxを管理する</h3>
+<ul>
+<li>Boxの一覧 <code>vagrant box list</code></li>
+<li>Boxの追加 <code>vagrant box add &lt;name&gt; &lt;url&gt;</code>（VagrantfileをつくらずにBoxの追加だけを行います）</li>
+<li>Boxの削除 <code>vagrant box remove &lt;name&gt;</code></li>
+</ul>
+<p>　仮想マシンからBoxファイルを作成するには<code>vagrant package</code>をつかいます。
+Boxファイルは仮想マシンディスクイメージ（VMDK）、OVFファイル、そしてVagrantfile等をTAR形式でまとめたものであるようです。</p>
+<pre><code>$ vagrant package
+[default] Attempting graceful shutdown of VM...
+[default] Clearing any previously set forwarded ports...
+[default] Creating temporary directory for export...
+[default] Exporting VM...
+[default] Compressing package to: vagrant-fedora-18/package.box
+</code></pre></li>
+<li><h3>仮想マシンを管理する</h3>
+<p>　Vagrantのプロジェクトディレクトリ内から、ゲストOSの起動や停止などを操作できます。</p>
+<ul>
+<li>仮想マシンの起動 <code>vagrant up</code></li>
+<li>仮想マシンの停止 <code>vagrant halt</code></li>
+<li>仮想マシンの再起動 <code>vagrant reload</code></li>
+<li>仮想マシンの一時停止 <code>vagrant suspend</code></li>
+<li>仮想マシンの再開 <code>vagrant resume</code></li>
+<li>仮想マシンへSSH接続 <code>vagrant ssh</code></li>
+</ul>
+<p>　仮想マシンの状態を確認するには<code>vagrant status</code>を実行します。</p>
+<pre><code>$ vagrant status
+Current machine states:
+default                   running (virtualbox)
+</code></pre></li>
+<li><h3>MULTI-MACHINEを利用する</h3>
+<p>　複数の仮想マシンをコントロールできるMULTI-MACHINE環境を利用するには、Vagrantfileに仮想マシンの情報を定義します。
+例えば、仮想マシンを２つ、異なるホスト名とBoxで定義する場合、Vagrantfileの<code>Vagrant.configure(VAGRANTFILE_API_VERSION) do |config| ... end</code>の間に、次のように記述します。</p>
+<pre><code>config.vm.define :node1 do |node1_config|
+  node1_config.vm.hostname = "node1"
+end
+config.vm.define :node2 do |node2_config|
+  node2_config.vm.box = "centos-6.3"
+  node2_config.vm.hostname = "node2"
+end
+</code></pre>
+<p>　上のようにVagrantfileを書き換えたあと<code>vagrant up</code>を実行してみると、ゲストのFedoraとCentOSが同時に起動します。</p>
+<pre><code>$ vagrant up
+Bringing machine 'node1' up with 'virtualbox' provider...
+Bringing machine 'node2' up with 'virtualbox' provider...
+[node1] Importing base box 'fedora-18'...
+[node1] Matching MAC address for NAT networking...
+[node1] Setting the name of the VM...
+[node1] Clearing any previously set forwarded ports...
+[node1] Creating shared folders metadata...
+[node1] Clearing any previously set network interfaces...
+[node1] Preparing network interfaces based on configuration...
+[node1] Forwarding ports...
+[node1] -- 22 =&gt; 2222 (adapter 1)
+[node1] Booting VM...
+[node1] Waiting for VM to boot. This can take a few minutes.
+[node1] VM booted and ready for use!
+[node1] Setting hostname...
+[node1] Mounting shared folders...
+[node1] -- /vagrant
+[node2] Importing base box 'centos-6.3'...
+[node2] Matching MAC address for NAT networking...
+[node2] Setting the name of the VM...
+[node2] Clearing any previously set forwarded ports...
+[node2] Fixed port collision for 22 =&gt; 2222. Now on port 2200.
+[node2] Creating shared folders metadata...
+[node2] Clearing any previously set network interfaces...
+[node2] Preparing network interfaces based on configuration...
+[node2] Forwarding ports...
+[node2] -- 22 =&gt; 2200 (adapter 1)
+[node2] Booting VM...
+[node2] Waiting for VM to boot. This can take a few minutes.
+[node2] VM booted and ready for use!
+[node2] Setting hostname...
+[node2] Mounting shared folders...
+[node2] -- /vagrant
+$ vagrant status
+Current machine states:
+node1                     running (virtualbox)
+node2                     running (virtualbox)
+</code></pre>
+<p><img src="http://momoto.github.io/blog/images/2013-08-30-guide-to-managing-guests-using-vagrant/02-multi-machine.png" width="600" title="VirtualBoxからMULTI-MACHINEの動作を確認する" ></p>
+<p>　Vagrantfileにはホスト名以外にも細かく設定を記述することができます。詳しい設定項目については<a href="http://docs.vagrantup.com/v2/vagrantfile/index.html">Documentation</a>を参照してください。</p></li>
+</ol>
+<h2>参考</h2>
+<ul>
+<li><a href="http://docs.vagrantup.com/v2">Vagrant Documentation</a></li>
+</ul>
+<h2>関連記事</h2>
+<ul>
+<li><a href="http://momoto.github.io/blog/2013/08/17/guide-to-managing-guests-using-virsh/">Virshをつかって仮想マシンを管理する</a></li>
+<li><a href="http://momoto.github.io/blog/2013/08/11/guide-to-creating-virtual-machine-with-qemu/">QEMUをつかって仮想マシンを作成する</a></li>
+</ul>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=4798121401" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=477415038X" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=4822262731" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Red Hat OpenShiftにRedmine 2.0を展開する]]></title>
+    <link href="http://momoto.github.io/blog/2013/08/24/deploying-redmine-2-dot-0-on-openshift/"/>
+    <updated>2013-08-24T12:06:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/08/24/deploying-redmine-2-dot-0-on-openshift</id>
+    <content type="html"><![CDATA[<p>　Red Hat OpenShiftにプロジェクト管理ソフトウェアのRedmine 2.0を展開します。rhcとredmine-2.0-openshift-quickstartを使用しています。あらかじめOpenShiftのアカウントを作成している必要があります。</p>
+<!--more-->
+<ol>
+<li><h4>Ruby 1.9のアプリケーションを作成する</h4>
+<p>　<code>rhc app create</code>でアプリケーションを作成します。-aにはアプリケーション名、-tにはウェブカートリッジを指定します。</p>
+<pre><code>$ rhc app create -a redmine -t ruby-1.9
+Application Options
+-------------------
+  Namespace:  momoto
+  Cartridges: ruby-1.9
+  Gear Size:  default
+  Scaling:    no
+Creating application 'redmine' ... done
+Waiting for your DNS name to be available ... done
+Cloning into 'redmine'...
+Checking connectivity... done
+Your application 'redmine' is now available.
+  URL:        http://redmine-momoto.rhcloud.com/
+  SSH to:     *
+  Git remote: *
+  Cloned to:  ~/Workspace/redmine
+Run 'rhc show-app redmine' for more details about your app.
+</code></pre>
+<p>　アプリケーションの作成と同時に、Gitリポジトリがローカルにクローンされています。</p></li>
+<li><h4>MySQL Database 5.1カートリッジを追加する</h4>
+<p>　<code>rhc cartridge add</code>でMySQL Database 5.1アドオンカートリッジを追加します。追加できるカートリッジは<code>rhc cartridges</code>または<code>rhc cartridge list</code>で確認できます。</p>
+<pre><code>$ rhc cartridge add -a redmine -c mysql-5.1
+Adding mysql-5.1 to application 'redmine' ... done
+mysql-5.1 (MySQL Database 5.1)
+------------------------------
+  Gears:          Located with ruby-1.9
+  Connection URL: mysql://$OPENSHIFT_MYSQL_DB_HOST:$OPENSHIFT_MYSQL_DB_PORT/
+  Database Name:  *
+  Password:       *
+  Username:       *
+MySQL 5.1 database added.  Please make note of these credentials:
+       Root User: *
+   Root Password: *
+   Database Name: *
+Connection URL: mysql://$OPENSHIFT_MYSQL_DB_HOST:$OPENSHIFT_MYSQL_DB_PORT/
+You can manage your new MySQL database by also embedding phpmyadmin-3.4.
+The phpmyadmin username and password will be the same as the MySQL credentials above.
+</code></pre></li>
+<li><h4>redmine-2.0-openshift-quickstartを併合する</h4>
+<ol>
+<li>　OpenShiftからクローンしたローカルリポジトリにワーキングディレクトリをうつします</li>
+<li>　GitHubの<a href="https://github.com/openshift/redmine-2.0-openshift-quickstart">redmine-2.0-openshift-quickstart</a>を<code>upstream</code>としてリモートリポジトリに追加します</li>
+<li>　ローカルリポジトリにupstreamを併合します（MERGE STRATEGYはrecursive、recursive strategyのオプションはtheirs）</li>
+</ol>
+<p>　もし、OpenShiftからリポジトリをクローンしなおす場合は<code>rhc git-clone &lt;app&gt;</code>をつかいます。</p>
+<pre><code>$ cd redmine/
+$ git remote add upstream -m master git://github.com/openshift/redmine-2.0-openshift-quickstart.git
+$ git pull -s recursive -X theirs upstream master
+warning: no common commits
+remote: Counting objects: 2003, done.
+remote: Compressing objects: 100% (1725/1725), done.
+remote: Total 2003 (delta 300), reused 1897 (delta 199)
+Receiving objects: 100% (2003/2003), 4.06 MiB | 272.00 KiB/s, done.
+Resolving deltas: 100% (300/300), done.
+From git://github.com/openshift/redmine-2.0-openshift-quickstart
+ * branch            master     -&gt; FETCH_HEAD
+Auto-merging config.ru
+Auto-merging README.md
+Auto-merging .openshift/cron/weekly/jobs.allow
+Auto-merging .openshift/cron/README.cron
+...
+</code></pre></li>
+<li><h4>OpenShiftに展開する</h4>
+<p>　redmine-2.0-openshift-quickstartと併合したローカルリポジトリを、OpenShiftのリモートリポジトリ（origin）に更新します。</p>
+<pre><code>$ git push origin master
+Counting objects: 2011, done.
+Delta compression using up to 2 threads.
+Compressing objects: 100% (1625/1625), done.
+Writing objects: 100% (2001/2001), 4.06 MiB | 1.58 MiB/s, done.
+Total 2001 (delta 307), reused 1989 (delta 300)
+remote: Stopping Ruby cart
+remote: Running build on Ruby cart
+remote: Bundling RubyGems based on Gemfile/Gemfile.lock to repo/vendor/bundle with 'bundle install --deployment'
+remote: Fetching gem metadata from http://rubygems.org/.........
+...
+</code></pre>
+<p>　<code>git push</code>の処理が終わったら、ウェブブラウザからアプリケーションのURLへアクセスして動作を確認します。アプリケーションのURLは<code>rhc show-app &lt;app&gt;</code>からも確認できます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-08-24-deploying-redmine-2-dot-0-on-openshift/redmine-home.png" width="500" title="Red Hat OpenShiftにRedmine 2.0を展開する" ></p></li>
+</ol>
+<p>　OpenShiftではRedmineのほか、<a href="https://www.openshift.com/quickstarts/django">Django</a>、<a href="https://www.openshift.com/quickstarts/cakephp">CakePHP</a>、<a href="https://www.openshift.com/quickstarts/wordpress-3x">WordPress 3.x</a>などのクイックスタートも用意されています。</p>
+<h2>参考</h2>
+<ul>
+<li><a href="https://www.openshift.com/developers/documentation">Understanding OpenShift | OpenShift by Red Hat</a></li>
+<li><a href="https://github.com/openshift">openshift (OpenShift Origin) · GitHub</a>
+<ul>
+<li><a href="https://github.com/openshift/redmine-2.0-openshift-quickstart">openshift/redmine-2.0-openshift-quickstart</a></li>
+</ul>
+</li>
+</ul>
+<h2>関連記事</h2>
+<ul>
+<li><a href="http://momoto.github.io/blog/2013/08/24/installation-guide-for-openshift-rhc-client-tools/">Red Hat OpenShiftクライアントツールをインストールする</a></li>
+<li><a href="http://momoto.github.io/blog/2013/05/31/deploy-redmine-2-dot-3-1-on-heroku/">HerokuにRedmine 2.3.1を展開する</a></li>
+</ul>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=4822211983" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=4774155934" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Red Hat OpenShiftクライアントツールをインストールする]]></title>
+    <link href="http://momoto.github.io/blog/2013/08/24/installation-guide-for-openshift-rhc-client-tools/"/>
+    <updated>2013-08-24T11:08:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/08/24/installation-guide-for-openshift-rhc-client-tools</id>
+    <content type="html"><![CDATA[<p>　Red Hat OpenShiftに用意されている２通りのユーザインタフェースのうちの１つ、クライアントツールをインストールします。
+クライアントツールをつかうと、もう一方のユーザインタフェースであるマネジメントコンソールでは提供されていない機能を利用できます。</p>
+<!-- more -->
+<h2>インストール</h2>
+<p>　クライアントツール（以下、rhc）の要件として、Ruby、RubyGems、Gitがあらかじめインストールされている必要があります。
+インストールにはパッケージ管理システムごとに何通りかの方法がありますが、OpenShift開発チームの調整が最も反映されているのはGEMパッケージであるようです。</p>
+<h4>RPMパッケージ</h4>
+<p>　YumをつかってRPMパッケージ版rhcをインストールします。</p>
+<pre><code>$ sudo yum install rhc
+</code></pre>
+<h4>AURパッケージ</h4>
+<p>　Pacmanをつかって<a href="https://aur.archlinux.org/packages/rhc/">AURパッケージ版rhc</a>をインストールします。</p>
+<pre><code>$ curl -Os https://aur.archlinux.org/packages/rh/rhc/rhc.tar.gz
+$ tar xfz rhc.tar.gz
+$ cd rhc
+$ makepkg -i -s
+</code></pre>
+<h4>GEMパッケージ</h4>
+<p>　RubyGemsをつかって<a href="http://rubygems.org/gems/rhc">gemパッケージ版rhc</a>をインストールします。</p>
+<pre><code>$ sudo gem install rhc
+</code></pre>
+<h2>初期設定</h2>
+<p>　<code>rhc setup</code>コマンドでセットアップウィザードを起動させます。
+OpenShiftへのログイン情報を入力するので、あらかじめ<a href="http://openshift.redhat.com/">OpenShift</a>のアカウントを作成している必要があります。</p>
+<pre><code>$ rhc setup
+OpenShift Client Tools (RHC) Setup Wizard
+This wizard will help you upload your SSH keys, set your application namespace, and check that other programs like Git are properly installed.
+Login to openshift.redhat.com: 
+</code></pre>
+<p>　認証トークンを生成するかどうかを選択します。
+トークンを生成しておくと、その有効期限の間はログイン情報の入力を省略できます。このトークンは<code>rhc logout</code>で消すことができます。</p>
+<pre><code>OpenShift can create and store a token on disk which allows to you to access the server without using your password. The key is stored in your home directory and should
+be kept secret.  You can delete the key at any time by running 'rhc logout'.
+Generate a token now? (yes|no) yes
+Generating an authorization token for this client ... lasts about 1 day
+Saving configuration to ~/.openshift/express.conf ... done
+</code></pre>
+<p>　SSHの認証につかう公開鍵をOpenShiftリモートサーバへアップロードするかどうかを選択します。
+セットアップウィザードに従う場合、ホームディレクトリから見つかったid_rsaとid_rsa.pubのペアのうち、id_rsa.pubのほうをアップロードします。</p>
+<pre><code>Your public SSH key must be uploaded to the OpenShift server to access code.  Upload now? (yes|no) 
+</code></pre>
+<h2>SSH接続</h2>
+<p>　<code>rhc ssh &lt;app&gt;</code>コマンドをつかって、SSH接続を試してみます。今までに作成したアプリケーションは<code>rhc apps</code>コマンドで確認することができます。</p>
+<pre><code>$ rhc ssh &lt;app&gt;
+Connecting to ********@&lt;app&gt;-&lt;namespace&gt;.rhcloud.com ...
+*********************************************************************
+You are accessing a service that is for use only by authorized users.
+If you do not have authorization, discontinue use at once.
+Any use of the services is subject to the applicable terms of the
+agreement which can be found at:
+https://www.openshift.com/legal
+*********************************************************************
+Welcome to OpenShift shell
+This shell will assist you in managing OpenShift applications.
+!!! IMPORTANT !!! IMPORTANT !!! IMPORTANT !!!
+Shell access is quite powerful and it is possible for you to
+accidentally damage your application.  Proceed with care!
+If worse comes to worst, destroy your application with 'rhc app delete'
+and recreate it
+!!! IMPORTANT !!! IMPORTANT !!! IMPORTANT !!!
+Type "help" for more info.
+[&lt;app&gt;-&lt;namespace&gt;.rhcloud.com ********]\&gt;
+</code></pre>
+<p>　<code>help</code>では、OpenShiftアプリケーション環境で利用できるコマンドを参照することができます。</p>
+<pre><code>Help menu: The following commands are available to help control your openshift
+application and environment.
+ctl_app         control your application (start, stop, restart, etc)
+ctl_all         control application and deps like mysql in one command
+tail_all        tail all log files
+export          list available environment variables
+rm              remove files / directories
+ls              list files / directories
+ps              list running applications
+kill            kill running applications
+mysql           interactive MySQL shell
+mongo           interactive MongoDB shell
+psql            interactive PostgreSQL shell
+quota           list disk usage
+</code></pre>
+<h2>参考</h2>
+<ul>
+<li><a href="https://access.redhat.com/site/documentation/en-US/OpenShift_Online/2.0/html/User_Guide/index.html">User Guide &ndash; Red Hat Customer Portal</a></li>
+<li><a href="https://access.redhat.com/site/documentation/en-US/OpenShift_Online/2.0/html/Client_Tools_Installation_Guide/index.html">Client Tools Installation Guide &ndash; Red Hat Customer Portal</a></li>
+</ul>
+<h2>関連記事</h2>
+<ul>
+<li><a href="http://momoto.github.io/blog/2013/08/24/deploying-redmine-2-dot-0-on-openshift/">Red Hat OpenShiftにRedmine 2.0を展開する</a></li>
+</ul>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=4798121622" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+<iframe src="http://rcm-fe.amazon-adsystem.com/e/cm?lt1=_top&bc1=000000&IS2=1&bg1=FFFFFF&fc1=000000&lc1=0000FF&t=seijimomotobl-22&o=9&p=8&l=as4&m=amazon&f=ifr&ref=ss_til&asins=4798034401" style="width:120px;height:240px;" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[virshをつかって仮想マシンを管理する]]></title>
+    <link href="http://momoto.github.io/blog/2013/08/17/guide-to-managing-guests-using-virsh/"/>
+    <updated>2013-08-17T15:51:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/08/17/guide-to-managing-guests-using-virsh</id>
+    <content type="html"><![CDATA[<p>　libvirtのコマンドラインツールであるvirshをつかって、仮想マシンを管理する手引きです。virt-installなどで作成した仮想マシンの起動、停止、接続などの操作を行います。</p>
+<!-- more -->
+<h3>仮想マシンの一覧</h3>
+<p>　virt-manager（virt-installを含む）で作成した仮想マシンや、XMLファイルから定義した仮想マシンの一覧を表示します。
+オプションを何も付けない場合、シャットオフ状態の仮想マシンは一覧に表示されないので、状態に依らずすべての一覧を得るには<code>--all</code>のオプションを付けます。
+他のユーザが作成した仮想マシンも一覧には表示されません。</p>
+<pre><code>$ virsh list --all
+ Id    名前                         状態
+----------------------------------------------------
+ -     ubuntu-13.04                   シャットオフ
+ 6     centos-6.4                     実行中
+</code></pre>
+<h3>仮想マシンの起動</h3>
+<p>　定義済みの仮想マシン（libvirtに認識されていてlistに現れる仮想マシン）を起動する場合、<code>virsh start &lt;仮想マシンの名前&gt;</code>のコマンドを使います。</p>
+<pre><code>$ virsh start ubuntu-13.04
+ドメイン ubuntu-13.04 が起動されました
+</code></pre>
+<p>　未定義の仮想マシンをXMLファイルから定義して、起動する場合、<code>virsh create &lt;XMLファイル&gt;</code>のコマンドを使います。</p>
+<pre><code>$ virsh create centos-6.4.backup.xml
+ドメイン centos-6.4 が centos-6.4.backup.xml から作成されました
+</code></pre>
+<h3>仮想マシンのコンソールへ接続する</h3>
+<p>　実行中の仮想マシンのシリアルポートへコンソール接続するには<code>virsh console &lt;仮想マシンのIDまたは名前&gt;</code>をつかいます。</p>
+<pre><code>$ virsh console 6
+ドメイン centos-6.4 に接続しました
+エスケープ文字は ^] です
+CentOS release 6.4 (Final)
+Kernel 2.6.32-358.el6.x86_64 on an x86_64
+localhost.localdomain login: 
+</code></pre>
+<p>　コンソールへ接続するには、仮想マシンのXMLファイルにシリアルデバイスが定義されていること（ホスト側）と、シリアルポートによる接続が許可されていること（ゲスト側）が必要です。</p>
+<ul>
+<li>参考
+<ul>
+<li><a href="http://lost-and-found-narihiro.blogspot.jp/2010/10/kvm-virsh-guest-os-centos.html">lost and found ( for me ? ): KVM: virsh コンソール接続&#12288;( guest OS CentOS )</a></li>
+<li><a href="http://lost-and-found-narihiro.blogspot.jp/2010/10/kvm-virsh-guest-os-ubuntu_18.html">lost and found ( for me ? ): KVM: virsh コンソール接続&#12288;( guest OS Ubuntu )</a></li>
+</ul>
+</li>
+</ul>
+<h3>一時停止と再開</h3>
+<pre><code>$ virsh suspend 5
+ドメイン 5 は一時停止されました
+$ virsh resume 5
+ドメイン 5 が再開されました
+</code></pre>
+<h3>停止する</h3>
+<p>　ホスト側から仮想マシンを停止させるには<code>virsh shutdown</code>または<code>virsh destroy</code>をつかいます。</p>
+<pre><code>$ virsh shutdown 6
+ドメイン 6 はシャットダウン中です
+$ virsh destroy 6
+ドメイン 6 は強制停止されました
+</code></pre>
+<h3>定義と定義の解除</h3>
+<p>　仮想マシンの定義を消すには<code>virsh undefine &lt;仮想マシンの名前&gt;</code>をつかいます。</p>
+<pre><code>$ virsh undefine ubuntu-13.04
+ドメイン ubuntu-13.04 の定義が削除されました
+</code></pre>
+<p>　XMLファイルから仮想マシンを定義するには<code>virsh define &lt;XMLファイル&gt;</code>をつかいます。</p>
+<pre><code>$ virsh define ubuntu-13.04.backup.xml
+ドメイン ubuntu-13.04 が ubuntu-13.04.backup.xml から定義されました
+</code></pre>
+<p>　定義済みの仮想マシンの情報をXML形式で出力するには<code>virsh dumpxml &lt;仮想マシンのIDまたは名前&gt;</code>をつかいます。</p>
+<pre><code>$ virsh dumpxml ubuntu-13.04 &gt; ubuntu-13.04.backup.xml
+</code></pre>
+<h3>参考</h3>
+<ul>
+<li><a href="http://libvirt.org/sources/virshcmdref/html-single/">Virsh Command Reference</a></li>
+<li><a href="https://access.redhat.com/site/documentation/ja-JP/Red_Hat_Enterprise_Linux/6/html/Virtualization_Administration_Guide/chap-Virtualization_Administration_Guide-Managing_guests_with_virsh.html">&#31532;14&#31456; virsh &#12434;&#20351;&#12387;&#12390;&#12466;&#12473;&#12488;&#12434;&#31649;&#29702;&#12377;&#12427; &ndash; Red Hat Customer Portal</a></li>
+<li><a href="http://docs.fedoraproject.org/ja-JP/Fedora/13/html/Virtualization_Guide/chap-Virtualization-Managing_guests_with_virsh.html">第28章 Managing guests with virsh</a></li>
+<li><a href="http://opensuse-man-ja.berlios.de/opensuse-html/bk05pt02.html">openSUSE 12.3: パート II. libvirt を利用した仮想マシンの管理</a></li>
+<li><a href="https://help.ubuntu.com/community/KVM/Managing">KVM/Managing &ndash; Community Ubuntu Documentation</a></li>
+<li><a href="https://wiki.archlinux.org/index.php/Libvirt">libvirt &ndash; ArchWiki</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[HerokuにDjango 1.5.2を展開する]]></title>
+    <link href="http://momoto.github.io/blog/2013/08/16/deploying-django-1-dot-5-2-on-heroku/"/>
+    <updated>2013-08-16T00:00:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/08/16/deploying-django-1-dot-5-2-on-heroku</id>
+    <content type="html"><![CDATA[<p>　Herokuが提供するPaaSにウェブアプリケーションフレームワーク Django 1.5.2を展開します。Pythonのバージョンは2.7を使用しています。</p>
+<!-- more -->
+<h4>1. django-toolbeltをインストールする</h4>
+<p>　django-toolbeltをインストールするところからはじめていきます。ここまでにPythonとVirtualenvがインストールされている必要があります。</p>
+<p>　まず、Python環境をつくるためのディレクトリを用意します。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ mkdir {application_root}
+</span><span class='line'>$ cd {application_root}/</span></code></pre></td></tr></table></div></figure>
+<p>　<a href="https://pypi.python.org/pypi/virtualenv/1.10.1">virtualenv 1.10.1</a>をつかって、独立したPython環境を作成します。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ virtualenv-2.7 venv --distribute
+</span><span class='line'>
+</span><span class='line'>  New python executable in venv/bin/python2
+</span><span class='line'>  Also creating executable in venv/bin/python
+</span><span class='line'>  Installing Setuptools......................done.
+</span><span class='line'>  Installing Pip.............................done.
+</span><span class='line'>
+</span><span class='line'>$ source venv/bin/activate</span></code></pre></td></tr></table></div></figure>
+<p>　<a href="https://pypi.python.org/pypi/pip/1.4.1">pip 1.4.1</a>をつかって<a href="https://pypi.python.org/pypi/django-toolbelt/0.0.1">django-toolbelt 0.0.1</a>をインストールします。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>(venv) $ pip install django-toolbelt
+</span><span class='line'>
+</span><span class='line'>  Successfully installed django-toolbelt django psycopg2 gunicorn dj-database-url dj-static static
+</span><span class='line'>  Cleaning up...
+</span></code></pre></td></tr></table></div></figure>
+<h4>2. Djangoプロジェクトを作成する</h4>
+<p>　Herokuへ展開するDjangoのプロジェクトを作成していきます。この手順の中で、Herokuのプラットフォームでも動作するようにDjangoの設定を調整する必要があります。</p>
+<p>　django-admin.pyをつかってプロジェクトを作成します。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>(venv) $ django-admin.py startproject {project_name} .</span></code></pre></td></tr></table></div></figure>
+<p>　アプリケーションのルートディレクトリにProcfile、requirements.txt、.gitignoteを用意します。
+<a href="https://devcenter.heroku.com/articles/procfile">Procfile</a>にはHerokuのdynosに実行させるコマンドを宣言します。
+<a href="http://www.pip-installer.org/en/latest/requirements.html">requirements.txt</a>には必要なPythonパッケージを記述します。
+<a href="http://git-scm.com/docs/gitignore">.gitignore</a>にはGitで追跡しないファイルを明示します。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>(venv) $ vi Procfile
+</span><span class='line'>
+</span><span class='line'>  web: gunicorn {project_name}.wsgi
+</span><span class='line'>
+</span><span class='line'>(venv) $ pip freeze &gt; requirements.txt
+</span><span class='line'>
+</span><span class='line'>  Django==1.5.2
+</span><span class='line'>  dj-database-url==0.2.2
+</span><span class='line'>  dj-static==0.0.5
+</span><span class='line'>  django-toolbelt==0.0.1
+</span><span class='line'>  gunicorn==17.5
+</span><span class='line'>  psycopg2==2.5.1
+</span><span class='line'>  static==0.4
+</span><span class='line'>  wsgiref==0.1.2
+</span><span class='line'>
+</span><span class='line'>(venv) $ vi .gitignore
+</span><span class='line'>
+</span><span class='line'>  venv
+</span><span class='line'>  *.pyc
+</span><span class='line'>  staticfiles</span></code></pre></td></tr></table></div></figure>
+<p>　{project_name}/settings.py では、データベースURLやスタティックファイルへのパスを調整する必要があります。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># Parse database configuration from $DATABASE_URL
+</span><span class='line'>import dj_database_url
+</span><span class='line'>DATABASES['default'] =  dj_database_url.config()
+</span><span class='line'>
+</span><span class='line'># Honor the 'X-Forwarded-Proto' header for request.is_secure()
+</span><span class='line'>SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+</span><span class='line'>
+</span><span class='line'># Allow all host headers
+</span><span class='line'>ALLOWED_HOSTS = ['*']
+</span><span class='line'>
+</span><span class='line'># Static asset configuration
+</span><span class='line'>import os
+</span><span class='line'>BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+</span><span class='line'>STATIC_ROOT = 'staticfiles'
+</span><span class='line'>STATIC_URL = '/static/'
+</span><span class='line'>
+</span><span class='line'>STATICFILES_DIRS = (
+</span><span class='line'>    os.path.join(BASE_DIR, 'static'),
+</span><span class='line'>)
+</span><span class='line'>
+</span><span class='line'>TEMPLATE_DIRS = (
+</span><span class='line'>    os.path.join(BASE_DIR, 'templates'),
+</span><span class='line'>)</span></code></pre></td></tr></table></div></figure>
+<p>　同様に、{project_name}/wsgi.py の内容も変更します。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>from django.core.wsgi import get_wsgi_application
+</span><span class='line'>from dj_static import Cling
+</span><span class='line'>
+</span><span class='line'>application = Cling(get_wsgi_application())</span></code></pre></td></tr></table></div></figure>
+<h4>3. Herokuへ展開する</h4>
+<p>　作成したDjangoプロジェクトをHerokuへ展開していきます。GitやHeroku ToolbeltとHerokuユーザアカウントが必要です。</p>
+<p>　Gitをつかってローカルリポジトリを作成します。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>(venv) $ git init
+</span><span class='line'>
+</span><span class='line'>  Initialized empty Git repository in ~/{application_root}/.git/
+</span><span class='line'>
+</span><span class='line'>(venv) $ git add .
+</span><span class='line'>(venv) $ git commit -m "Initial commit"
+</span><span class='line'>
+</span><span class='line'>  [master (root-commit) 691c642] Initial commit
+</span><span class='line'>   8 files changed, 254 insertions(+)
+</span><span class='line'>   create mode 100644 .gitignore
+</span><span class='line'>   create mode 100644 Procfile
+</span><span class='line'>   create mode 100644 requirements.txt
+</span><span class='line'>   ...</span></code></pre></td></tr></table></div></figure>
+<p>　Heroku ToolbeltをつかってHeroku側でアプリケーションを作成します。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>(venv) $ heroku create
+</span><span class='line'>
+</span><span class='line'>  Creating {application_name}... done, stack is cedar
+</span><span class='line'>  http://{application_name}.herokuapp.com/ | git@heroku.com:{application_name}.git
+</span><span class='line'>  Git remote heroku added</span></code></pre></td></tr></table></div></figure>
+<p>　GitをつかってローカルリポジトリをHerokuプラットフォームへプッシュします。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>(venv) $ git push heroku master
+</span><span class='line'>
+</span><span class='line'>-----&gt; Python app detected
+</span><span class='line'>-----&gt; No runtime.txt provided; assuming python-2.7.4.
+</span><span class='line'>-----&gt; Preparing Python runtime (python-2.7.4)
+</span><span class='line'>-----&gt; Installing Distribute (0.6.36)
+</span><span class='line'>-----&gt; Installing Pip (1.3.1)
+</span><span class='line'>-----&gt; Installing dependencies using Pip (1.3.1)
+</span><span class='line'>
+</span><span class='line'>       Installing collected packages: Django, dj-database-url, dj-static, django-toolbelt, gunicorn, psycopg2, static
+</span><span class='line'>       Successfully installed Django dj-database-url dj-static django-toolbelt gunicorn psycopg2 static
+</span><span class='line'>         Cleaning up...
+</span><span class='line'>
+</span><span class='line'>-----&gt; Discovering process types
+</span><span class='line'>       Procfile declares types -&gt; web
+</span><span class='line'>
+</span><span class='line'>-----&gt; Compiled slug size: 34.3MB
+</span><span class='line'>-----&gt; Launching... done, v5
+</span><span class='line'>       http://{application_name}.herokuapp.com deployed to Heroku</span></code></pre></td></tr></table></div></figure>
+<p><img src="http://momoto.github.io/blog/images/2013-08-16-deploying-django-1-dot-5-2-on-heroku/welcome-to-django.png" title="Welcome to Django" alt="Welcome to Django" /></p>
+<h2>管理サイトを有効化する</h2>
+<p>　管理サイトを有効化する場合は<code>INSTALLED_APPS</code>の<code>django.contrib.admin</code>の行をアンコメントします。INSTALLED_APPSは{project_name}/settings.pyに記述されています。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>INSTALLED_APPS = (
+</span><span class='line'>    'django.contrib.auth',
+</span><span class='line'>    'django.contrib.contenttypes',
+</span><span class='line'>    'django.contrib.sessions',
+</span><span class='line'>    'django.contrib.sites',
+</span><span class='line'>    'django.contrib.messages',
+</span><span class='line'>    'django.contrib.staticfiles',
+</span><span class='line'>    # Uncomment the next line to enable the admin:
+</span><span class='line'>    'django.contrib.admin',
+</span><span class='line'>    # Uncomment the next line to enable admin documentation:
+</span><span class='line'>    'django.contrib.admindocs',
+</span><span class='line'>)</span></code></pre></td></tr></table></div></figure>
+<p>　同様に、<code>urlpatterns</code>の<code>url(r'^admin/', include(admin.site.urls))</code>の行をアンコメントします。urlpatternsは{project_name}/urls.pyに記述されています。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'># Uncomment the next two lines to enable the admin:
+</span><span class='line'>from django.contrib import admin
+</span><span class='line'>admin.autodiscover()
+</span><span class='line'>
+</span><span class='line'>urlpatterns = patterns('',
+</span><span class='line'>    # Uncomment the admin/doc line below to enable admin documentation:
+</span><span class='line'>    url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
+</span><span class='line'>
+</span><span class='line'>    # Uncomment the next line to enable the admin:
+</span><span class='line'>    url(r'^admin/', include(admin.site.urls)),
+</span><span class='line'>)</span></code></pre></td></tr></table></div></figure>
+<p>　INSTALLED_APPSを変更してHerokuへプッシュした後は、Herokuプラットフォーム側で<code>python manage.py syncdb</code>を実行する必要があります。
+Herokuプラットフォーム側でコマンドを実行する場合は<code>heroku run</code>をつかいます。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>(venv) $ heroku run python manage.py syncdb
+</span><span class='line'>Running `python manage.py syncdb` attached to terminal... up, run.4816
+</span><span class='line'>Creating tables ...
+</span><span class='line'>Creating table auth_permission
+</span><span class='line'>Creating table auth_group_permissions
+</span><span class='line'>Creating table auth_group
+</span><span class='line'>Creating table auth_user_groups
+</span><span class='line'>Creating table auth_user_user_permissions
+</span><span class='line'>Creating table auth_user
+</span><span class='line'>Creating table django_content_type
+</span><span class='line'>Creating table django_session
+</span><span class='line'>Creating table django_site
+</span><span class='line'>Creating table django_admin_log
+</span><span class='line'>
+</span><span class='line'>You just installed Django's auth system, which means you don't have any superusers defined.
+</span><span class='line'>...
+</span><span class='line'>Superuser created successfully.
+</span><span class='line'>Installing custom SQL ...
+</span><span class='line'>Installing indexes ...
+</span><span class='line'>Installed 0 object(s) from 0 fixture(s)</span></code></pre></td></tr></table></div></figure>
+<h2>参考</h2>
+<ul>
+<li><a href="https://devcenter.heroku.com/articles/django">Getting Started with Django on Heroku | Heroku Dev Center</a></li>
+<li><a href="https://docs.djangoproject.com/en/1.5/intro/">Getting started | Django documentation | Django</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[QEMUをつかって仮想マシンを作成する]]></title>
+    <link href="http://momoto.github.io/blog/2013/08/11/guide-to-creating-virtual-machine-with-qemu/"/>
+    <updated>2013-08-11T14:54:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/08/11/guide-to-creating-virtual-machine-with-qemu</id>
+    <content type="html"><![CDATA[<p>　QEMUをつかって仮想マシンを作成する手引きです。ホスト側に仮想化機能が備わっていることを確かめたあと、QEMUをつかってゲストOSを構築します。</p>
+<!-- more -->
+<h2>仮想化機能を確かめる</h2>
+<p>　ホストとなるGNU/Linuxシステムで、CPUのハードウェア仮想化支援機能とLinux KVMのサポートを確かめます。</p>
+<ol>
+<li><h3>ハードウェアサポートを確かめる</h3>
+<p>　lscpuの仮想化（Virtualization）の行、または/proc/cpuinfoのflagsの行から、ハードウェア仮想化支援機能（Hardware-Assisted Virtualization）を確認します。
+この機能はベンダーごとに実装が異なるので、インテル製品であればVT-xを、AMD製品であればAMD-Vを確かめます。</p>
+<pre><code>$ lscpu | grep -Ei "(vt-x|amd-v)"
+仮想化:             AMD-V
+</code></pre>
+<p>　/proc/cpuinfoでは、VT-xの動作モード VMX、または、AMD-VのSecure virtual machine（svm）を確かめます。</p>
+<pre><code>$ grep -E "(vmx|svm)" /proc/cpuinfo
+flags : ... svm ... svm_lock ...
+</code></pre></li>
+<li><h3>カーネルサポートを確かめる</h3>
+<p>Linux KVMカーネルモジュールが有効になっていることを確認します。/proc/config.gzまたはlsmodから確かめます。</p>
+<pre><code>$ zgrep -E "KVM|VIRTUALIZATION" /proc/config.gz
+CONFIG_KVM_GUEST=y
+CONFIG_HAVE_KVM=y
+CONFIG_HAVE_KVM_IRQCHIP=y
+CONFIG_HAVE_KVM_IRQ_ROUTING=y
+CONFIG_HAVE_KVM_EVENTFD=y
+CONFIG_KVM_APIC_ARCHITECTURE=y
+CONFIG_KVM_MMIO=y
+CONFIG_KVM_ASYNC_PF=y
+CONFIG_HAVE_KVM_MSI=y
+CONFIG_HAVE_KVM_CPU_RELAX_INTERCEPT=y
+CONFIG_VIRTUALIZATION=y
+CONFIG_KVM=m
+CONFIG_KVM_INTEL=m
+CONFIG_KVM_AMD=m
+CONFIG_KVM_MMU_AUDIT=y
+CONFIG_KVM_DEVICE_ASSIGNMENT=y
+$ lsmod | grep kvm
+kvm_amd                52151  0
+kvm                   376394  1 kvm_amd
+</code></pre>
+<p>　また、ユーザは/dev/kvmへアクセスできる権限が必要です。Arch Linuxではkvmグループが用意されているので、ハイパーバイザを利用するユーザをこのグループに追加します。</p>
+<pre><code>$ sudo gpasswd -a $(whoami) kvm
+</code></pre></li>
+</ol>
+<h2>ゲストOSを構築する</h2>
+<ol>
+<li><h3>仮想ディスクイメージを作る</h3>
+<p>　qemu-imgをつかって、ゲストOSのディスクイメージを作ります。
+オプションとして、ディスクイメージのファイル形式、ファイル名、サイズを指定します。qcow2はQEMUでつかわれるイメージファイル形式です。</p>
+<pre><code>$ qemu-img create -f qcow2 ~/Workspace/CentOS-6.4-x86_64-netinstall.qcow2 8G
+Formatting '/home/guest/Workspace/CentOS-6.4-x86_64-netinstall.qcow2', fmt=qcow2 size=8589934592 encryption=off cluster_size=65536 lazy_refcounts=off
+</code></pre></li>
+<li><h3>ゲストOSをインストールする</h3>
+<p>　ゲストOSをインストールするために、qemu-system-&lt;architecture&gt;をつかって仮想マシンを起動します。
+このときのオプションには、OSインストールの方法にしたがって適当なオプションを付ける必要があります。
+インストールメディアをCentOS-6.4-x86_64-netinstall.isoとして、光学ドライブから起動させる場合は<code>-boot order=d</code>と<code>-cdrom &lt;file&gt;</code>のオプションを付けます。</p>
+<pre><code>$ qemu-system-x86_64 \
+-enable-kvm \
+-m 512 \
+-boot order=d \
+-cdrom ~/Downloads/CentOS-6.4-x86_64-netinstall.iso \
+~/Workspace/CentOS-6.4-x86_64-netinstall.qcow2
+</code></pre>
+<p><a href="http://momoto.github.io/blog/images/2013-08-11-guide-to-creating-virtual-machine-with-qemu/installing-centos-6-4-as-a-guest-os.png"><img src="http://momoto.github.io/blog/images/2013-08-11-guide-to-creating-virtual-machine-with-qemu/installing-centos-6-4-as-a-guest-os.thumbnail.png" alt="Cent OS 6.4をゲストOSとしてインストールする" /></a></p>
+<ul>
+<li>　<code>failed to initialize KVM: Device or resource busy</code> とでて先にすすめない場合は、ホスト側で別のハイパーバイザが起動していないか確認してください。</li>
+<li>　ゲスト側で <code>Trying to unpack rootfs image as initramfs</code> とでるところで起動がとまってしまう場合は、ゲストOSに必要なメモリが足りていないようです。
+QEMUの<code>-m</code>オプションの値を引き上げて試してみてください。</li>
+</ul>
+<p>　インストール後はインストールメディアのオプションを外して仮想マシンを起動します。</p>
+<pre><code>$ qemu-system-x86_64 \
+-enable-kvm \
+-m 512 \
+~/Workspace/CentOS-6.4-x86_64-netinstall.qcow2
+</code></pre>
+<p><a href="http://momoto.github.io/blog/images/2013-08-11-guide-to-creating-virtual-machine-with-qemu/booting-guest-os.png"><img src="http://momoto.github.io/blog/images/2013-08-11-guide-to-creating-virtual-machine-with-qemu/booting-guest-os.thumbnail.png" alt="ゲストOSの起動" /></a></p></li>
+</ol>
+<h2>参考</h2>
+<ul>
+<li><a href="http://wiki.qemu.org/Main_Page">QEMU</a></li>
+<li><a href="https://people.gnome.org/~markmc/qcow-image-format.html">The QCOW2 Image Format</a></li>
+</ul>
+<h3>関連記事</h3>
+<ul>
+<li><a href="http://momoto.github.io/blog/2013/04/06/install-centos-6-dot-4-i386-netinstall/">CentOS 6.4をインストールする</a></li>
+<li><a href="http://momoto.github.io/blog/2013/06/23/install-debian-7-dot-1-0-amd64-netinst/">Debian 7.1.0をインストールする</a></li>
+<li><a href="http://momoto.github.io/blog/2013/03/16/install-x86-minimal-20121213/">Gentoo Linuxをインストールする</a></li>
+<li><a href="http://momoto.github.io/blog/2013/01/05/install-arch-linux/">Arch Linux 2012.12.01をインストールする</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[PHP 5.5.1をインストールする（ソースからビルドする方法）]]></title>
+    <link href="http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-php-5-dot-5-1/"/>
+    <updated>2013-07-31T23:03:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-php-5-dot-5-1</id>
+    <content type="html"><![CDATA[<p>　PHP 5.5.1をソースコードからビルドして、Unix系システムへインストールする手引きです。
+この記事ではCentOS 6.4環境でインストールの例を示しますが、自身でソースからビルドする方法は特定のLinuxディストリビューションに依りません。</p>
+<!-- more -->
+<p>　インストールを行うユーザは、インストール先ディレクトリに対して書込み権限をもっている必要があります。/usr/local/* にインストールする場合、通常、root権限が必要です。</p>
+<ol>
+<li><h3>ソースコードを取得する</h3>
+<p>　ソースコードをインストールするマシンに用意します。
+インターネットからダウンロードする場合、<a href="http://www.php.net/downloads.php">php.net</a>にソースコードのURLが示されています。
+bzip2、gzip、xzのアーカイブが用意されていますので、マシンで解凍・展開できる形式を選択してください。</p>
+<p>　ダウンロードにはcURLやGNU Wgetなどのダウンロードマネージャやウェブブラウザを使用します。
+次の例では、cURLをつかってphp-5.5.1.tar.gzをダウンロードします。</p>
+<pre><code>[root@localhost ~]# curl -Lso php-5.5.1.tar.gz http://jp2.php.net/get/php-5.5.1.tar.gz/from/jp1.php.net/mirror
+</code></pre>
+<p>　取得したアーカイブファイルは適宜、解凍・展開して、ワーキングディレクトリを移動させます。
+<a href="http://www.pathname.com/fhs/pub/fhs-2.3.html#USRLOCALLOCALHIERARCHY" title="Filesystem Hierarchy Standard 2.3">FHS</a>に従うシステムであれば、独自にインストールするソフトウェアのためのディレクトリ /usr/local が予め用意されていますので、この記事ではソースコードを /usr/local/src に配置してインストールをすすめます。</p>
+<pre><code>[root@localhost ~]# tar xfz php-5.5.1.tar.gz -C /usr/local/src/
+[root@localhost ~]# cd /usr/local/src/php-5.5.1
+[root@localhost php-5.5.1]#
+</code></pre></li>
+<li><h3>インストール要件を満たす</h3>
+<p>　マシンがインストールの要件を満たしている必要があります。
+また、必要な拡張モジュールがある場合は、そのモジュールの要件も満たす必要があります。</p>
+<ul>
+<li><p>Cコンパイラ</p>
+<pre><code>[root@localhost ~]# yum install gcc
+</code></pre></li>
+<li><p>Make</p>
+<pre><code>[root@localhost ~]# yum install make
+</code></pre></li>
+</ul>
+</li>
+<li><h3>ビルドファイルを作成する</h3>
+<p>　configureをつかってビルドファイルを作成します。configureにオプションを与えることで、インストール先のディレクトリや有効にするモジュールを調整できます。
+指定できるオプションについては<code>configure --help</code>や<a href="http://php.net/manual/ja/configure.about.php">Manual</a>を参照してください。
+ビルドの要件を満たしていない場合、configureの処理は中断されます。</p>
+<p>　例えば、インストール先のディレクトリを /usr/local/php-5.5.1 として、
+<a href="http://www.php.net/manual/ja/book.apache.php">Apacheモジュール</a>、<a href="http://www.php.net/manual/ja/book.mysqli.php">MySQLiモジュール</a>、
+<a href="http://www.php.net/manual/ja/ref.pdo-mysql.php">PDO MySQLモジュール</a>、<a href="http://www.php.net/manual/ja/book.openssl.php">OpenSSLモジュール</a>を有効にする場合は次のようにconfigureを実行します。</p>
+<pre><code>[root@localhost php-5.5.1]# ./configure \
+--prefix=/usr/local/php-5.5.1 \
+--with-apxs2=/usr/local/httpd-2.4.6/bin/apxs \
+--with-mysql=mysqlnd \
+--with-mysqli=mysqlnd \
+--with-pdo-mysql=mysqlnd \
+--with-openssl
+</code></pre>
+<p>　次に、configureのエラー例をいくつか示します。</p>
+<ul>
+<li><h4>xml2-config not found.</h4>
+<pre><code>checking for xml2-config path...
+configure: error: xml2-config not found. Please check your libxml2 installation.
+</code></pre>
+<p>　<a href="http://www.php.net/manual/ja/book.libxml.php">libxmlモジュール</a>（デフォルトで有効）の要件であるlibxmlが必要です。</p>
+<pre><code>[root@localhost php-5.5.1]# yum install libxml2-devel
+</code></pre></li>
+<li><h4>configure: error: Cannot find OpenSSL&rsquo;s &lt;evp.h></h4>
+<pre><code>configure: error: Cannot find OpenSSL's &lt;evp.h&gt;
+</code></pre>
+<p>　<a href="http://www.php.net/manual/ja/book.openssl.php">OpenSSLモジュール</a>の要件であるOpenSSLが必要です。</p>
+<pre><code>[root@localhost php-5.5.1]# yum search install openssl-devel
+</code></pre></li>
+</ul>
+<p>　configureの処理が終了してMakefileが作成されていれば、ビルドの段階へすすみます。</p></li>
+<li><h3>ビルドとインストール</h3>
+<p>　ビルドとインストールにはmakeを使います。ディスクの容量が充分足りていることを確認してください。</p>
+<pre><code>[root@localhost php-5.5.1]# make &amp;&amp; make install
+</code></pre>
+<p>　makeの処理が無事に終了したらインストールは完了です。
+configureの<code>--prefix</code>に指定した位置にファイルが展開されているはずです。</p>
+<pre><code>[root@localhost php-5.5.1]# /usr/local/php-5.5.1/bin/php -v
+PHP 5.5.1 (cli)
+Copyright (c) 1997-2013 The PHP Group
+Zend Engine v2.5.0, Copyright (c) 1998-2013 Zend Technologies
+</code></pre></li>
+</ol>
+<h2>インストール後</h2>
+<p>　必要に応じて、php.iniの設定、実行バイナリへのパスの設定を行なってください。
+ソースコードのアーカイブには標準のphp.iniが、開発環境向けと製品向けの２通り用意されています。</p>
+<pre><code>[root@localhost php-5.5.1]# cp /usr/local/src/php-5.5.1/php.ini-development /usr/local/php-5.5.1/lib/php.ini
+</code></pre>
+<p>　新しく設置したphp.iniが正常に認識されているかどうかは<code>--ini</code>オプションで出力される Loaded Configuration File などで確認できます。</p>
+<pre><code>[root@localhost php-5.5.1]# ./bin/php --ini
+Configuration File (php.ini) Path: /usr/local/php-5.5.1/lib
+Loaded Configuration File:         /usr/local/php-5.5.1/lib/php.ini
+Scan for additional .ini files in: (none)
+Additional .ini files parsed:      (none)
+</code></pre>
+<p>　標準のままの状態ではタイムゾーン未設定の警告がでますが、date.timezoneディレクティブにタイムゾーンを設定するとこの警告は出なくなります。その他のディレクティブも用途にあわせて設定してください。</p>
+<pre><code>PHP Warning:  Unknown: It is not safe to rely on the system's timezone settings. You are *required* to use the date.timezone setting or the date_default_timezone_set() function. In case you used any of those methods and you are still getting this warning, you most likely misspelled the timezone identifier. We selected the timezone 'UTC' for now, but please set date.timezone to select your timezone. in Unknown on line 0
+[Date]
+; Defines the default timezone used by the date functions
+; http://php.net/date.timezone
+date.timezone = Asia/Tokyo
+</code></pre>
+<h3>動作を確認する</h3>
+<p>　最後に、PHP 5.5.1の動作を少し確認してみます。
+ここではPHPの拡張モジュールが正常に機能しているかどうかを中心に確かめていきます。</p>
+<ul>
+<li><h4>apache2.x</h4>
+<p>　Apacheの設定ファイル（httpd.confなど）に LoadModuleディレクティブを正しく記述していることを確認します。</p>
+<pre><code>LoadModule php5_module        modules/libphp5.so
+</code></pre>
+<p>　また、PHPファイルをApacheハンドラに指定するため、SetHandlerやAddHandlerなどのディレクティブも必要です。</p>
+<pre><code>&lt;FilesMatch \.php$&gt;
+    SetHandler application/x-httpd-php
+&lt;/FilesMatch&gt;
+</code></pre>
+<p>　libphp5.soは、configureの<code>--with-apxs2=FILE</code>オプションを指定していれば、PHPのインストール時に作成されているはずです。</p>
+<pre><code>[root@localhost httpd-2.4.6]# file modules/libphp5.so
+modules/libphp5.so: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, not stripped
+</code></pre>
+<p>　apachectlの<code>-M</code>オプションをつかって、読み込まれているモジュールを確認することもできます。</p>
+<pre><code>[root@localhost httpd-2.4.6]# apachectl -M | grep php5_module
+ php5_module (shared)
+</code></pre></li>
+<li><h4>MySQLiモジュール</h4>
+<p>　mysqliモジュールを確認します。
+<code>PHP Warning:  PHP Startup: Unable to load dynamic library 'php_mysqli.dll'</code>と出る場合はモジュールがうまく読み込まれていません。</p>
+<pre><code>[root@localhost php-5.5.1]# php -m | grep mysqli
+mysqli
+[root@localhost php-5.5.1]# php -r "var_dump(class_exists('mysqli'));"
+bool(true)
+</code></pre></li>
+<li><h4>PDO MySQLモジュール</h4>
+<p>　pdo_mysqlモジュールを確認します。
+<code>PHP Warning:  PHP Startup: Unable to load dynamic library 'php_pdo_mysql.dll'</code>と出る場合はモジュールがうまく読み込まれていません。</p>
+<pre><code>[root@localhost php-5.5.1]# php -m | grep -i pdo
+PDO
+pdo_mysql
+pdo_sqlite
+[root@localhost php-5.5.1]# php -r 'print_r(PDO::getAvailableDrivers());'
+Array
+(
+    [0] =&gt; mysql
+    [1] =&gt; sqlite
+)
+</code></pre></li>
+</ul>
+<h3>参考</h3>
+<ul>
+<li><a href="http://www.php.net/manual/ja/">PHP: PHP マニュアル &ndash; Manual</a></li>
+</ul>
+<h3>関連記事</h3>
+<ul>
+<li><a href="http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-apache-http-server-2-dot-4-6/">Apache HTTP Server 2.4.6をインストールする（ソースからビルドする方法）</a></li>
+<li><a href="http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-mysql-community-server-5-dot-6-13/">MySQL Community Server 5.6.13をインストールする（ソースからビルドする方法）</a></li>
+<li><a href="http://momoto.github.io/blog/2013/04/06/install-centos-6-dot-4-i386-netinstall/">CentOS 6.4をインストールする</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[MySQL Community Server 5.6.13をインストールする（ソースからビルドする方法）]]></title>
+    <link href="http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-mysql-community-server-5-dot-6-13/"/>
+    <updated>2013-07-31T22:15:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-mysql-community-server-5-dot-6-13</id>
+    <content type="html"><![CDATA[<p>　MySQL Community Server 5.6.13をソースコードからビルドして、Unix系システムへインストールする手引きです。
+この記事ではCentOS 6.4環境でインストールの例を示しますが、自身でソースからビルドする方法は特定のLinuxディストリビューションに依りません。</p>
+<!-- more -->
+<p>　インストールを行うユーザは、インストール先ディレクトリに対して書込み権限をもっている必要があります。/usr/local/* にインストールする場合、通常、root権限が必要です。</p>
+<ol>
+<li><h3>ソースコードを取得する</h3>
+<p>　ソースコードをインストールするマシンに用意します。
+インターネットからダウンロードする場合、<a href="http://dev.mysql.com/">dev.mysql.com</a>にソースコードのURLが示されています。
+<a href="http://dev.mysql.com/downloads/">MySQL Downloads</a>から<a href="http://dev.mysql.com/downloads/mysql/">Download MySQL Community Server</a>へとすすみ、Select Platform&hellip; では Source Code を選択して、<a href="http://dev.mysql.com/downloads/mirror.php?id=413981">Generic Linux (Architecture Independent), Compressed TAR Archive (mysql-5.6.13.tar.gz)</a>をダウンロードします。ダウンロードの際、Oracleウェブアカウントの登録を促されますが、インストールに必要なものではありません。</p>
+<p>　ダウンロードにはcURLやGNU Wgetなどのダウンロードマネージャやウェブブラウザを使用します。
+次の例では、cURLをつかってmysql-5.6.13.tar.gzをダウンロードします。</p>
+<pre><code>[root@localhost ~]# curl -Lso mysql-5.6.13.tar.gz http://dev.mysql.com/get/Downloads/MySQL-5.6/mysql-5.6.13.tar.gz/from/http://cdn.mysql.com/
+</code></pre>
+<p>　取得したアーカイブファイルは適宜、解凍・展開して、ワーキングディレクトリを移動させます。
+<a href="http://www.pathname.com/fhs/pub/fhs-2.3.html#USRLOCALLOCALHIERARCHY" title="Filesystem Hierarchy Standard 2.3">FHS</a>に従うシステムであれば、独自にインストールするソフトウェアのためのディレクトリ /usr/local が予め用意されていますので、この記事ではソースコードを /usr/local/src に配置してインストールをすすめます。</p>
+<pre><code>[root@localhost ~]# tar xfz mysql-5.6.13.tzr.gz -C /usr/local/src/
+[root@localhost ~]# cd /usr/local/src/mysql-5.6.13
+[root@localhost mysql-5.6.13]#
+</code></pre></li>
+<li><h3>インストール要件を満たす</h3>
+<p>　マシンがインストールの要件を満たしている必要があります。
+要件については<a href="http://dev.mysql.com/doc/refman/5.6/en/source-installation.html">Reference Manual</a>に詳しい説明があります。</p>
+<ul>
+<li><p>C++コンパイラ</p>
+<pre><code>[root@localhost ~]# yum install gcc-c++
+</code></pre></li>
+<li><p>Make</p>
+<pre><code>[root@localhost ~]# yum install make
+</code></pre></li>
+<li><p>CMake &ndash; <a href="http://www.cmake.org/cmake/resources/software.html">www.cmake.org</a>や各種ディストリビューションで配布されています。</p>
+<pre><code>[root@localhost ~]# yum install cmake
+</code></pre></li>
+<li><p>Cursesライブラリ</p>
+<pre><code>[root@localhost ~]# yum install ncurses-devel
+</code></pre></li>
+<li><p>Perl</p>
+<pre><code>[root@localhost ~]# yum install perl
+</code></pre></li>
+</ul>
+<p>　インストール要件ではありませんが、mysqlサーバのためのグループとユーザを用意しておきます。UIDとGIDは<a href="https://access.redhat.com/site/documentation/en-US/Red_Hat_Enterprise_Linux/4/html/Reference_Guide/s1-users-groups-standard-users.html">Red Hat Enterprise Linux 4 Reference Guide 6.2. 標準ユーザ</a>に従って27としています。</p>
+<pre><code>[root@localhost ~]# groupadd -g 27 mysql
+[root@localhost ~]# useradd -u 27 -r -g 27 mysql
+</code></pre></li>
+<li><h3>ビルドファイルを作成する</h3>
+<p>　cmakeをつかってビルドファイルを作成します。cmakeにオプションを与えることで、インストール先のディレクトリなどを調整することができます。
+指定できるオプションについては<code>cmake . -LH</code>や<a href="http://dev.mysql.com/doc/refman/5.6/en/source-configuration-options.html">Reference Manual</a>を参照してください。
+ビルドの要件を満たしていない場合、cmakeの処理は中断されます。</p>
+<p>　例えば、インストール先のディレクトリを /usr/local/mysql-5.6.13 として、
+デフォルトの文字セットをUTF-8、
+照合順序をutf8_general_ciと指定する場合は次のようにcmakeを実行します。</p>
+<pre><code>[root@localhost mysql-5.6.13]# cmake . -DCMAKE_INSTALL_PREFIX=/usr/local/mysql-5.6.13 -DDEFAULT_CHARSET=utf8 -DDEFAULT_COLLATION=utf8_general_ci
+</code></pre>
+<p>　次に、cmakeのエラー例をいくつか示します。</p>
+<ul>
+<li><h4>&ldquo;CMAKE_CXX_COMPILER-NOTFOUND&rdquo; was not found.</h4>
+<pre><code>CMake Error: your CXX compiler: "CMAKE_CXX_COMPILER-NOTFOUND" was not found.   Please set CMAKE_CXX_COMPILER to a valid compiler path or name.
+</code></pre>
+<p>　C++コンパイラが正しくインストールされているか確認してください。</p></li>
+<li><h4>Curses library not found.</h4>
+<pre><code>-- Could NOT find Curses  (missing:  CURSES_LIBRARY CURSES_INCLUDE_PATH)
+CMake Error at cmake/readline.cmake:85 (MESSAGE):
+  Curses library not found.  Please install appropriate package,
+      remove CMakeCache.txt and rerun cmake.On Debian/Ubuntu, package name is libncurses5-dev, on Redhat and derivates it is ncurses-devel.
+</code></pre>
+<p>　Cursesライブラリが正しくインストールされているか確認してください。</p></li>
+</ul>
+<p>　cmakeの処理が終了してMakefileが作成されていれば、ビルドの段階へすすみます。</p></li>
+<li><h3>ビルドとインストール</h3>
+<p>　ビルドとインストールにはmakeを使います。ディスクの容量が充分足りていることを確認してください。</p>
+<pre><code>[root@localhost mysql-5.6.13]# make &amp;&amp; make install
+</code></pre>
+<p>　makeの処理が無事に終了したらインストールは完了です。
+cmakeの<code>-DCMAKE_INSTALL_PREFIX</code>に指定した位置にファイルが展開されているはずです。PREFIXを指定していなかった場合は&#8221;/usr/local/mysql&#8221;になります。</p>
+<pre><code>[root@localhost mysql-5.6.13]# /usr/local/mysql-5.6.13/bin/mysqld --version
+/usr/local/mysql-5.6.13/bin/mysqld  Ver 5.6.13 for Linux on x86_64 (Source distribution)
+</code></pre></li>
+</ol>
+<h2>インストール後</h2>
+<p>　データディレクトリの初期化、MySQLユーザの設定などを行なっていきます。</p>
+<ul>
+<li><h3>データディレクトリを初期化する（scripts/mysql_install_db）</h3>
+<p>　<code>PREFIX/scripts/mysql_install_db</code>をつかってデータディレクトリを初期化します。
+Perlスクリプトであるため実行するにはPerlがインストールされている必要があります。
+オプションとしてMySQLサーバの実行ユーザ、MySQLをインストールしているディレクトリ、データディレクトリを指定できます。
+その他使用できるオプションは<a href="http://dev.mysql.com/doc/refman/5.6/en/mysql-install-db.html">Reference Manualの4.4.3</a>を参照してください。</p>
+<pre><code>[root@localhost mysql-5.6.13]# cd /usr/local/mysql-5.6.13/
+[root@localhost mysql-5.6.13]# chown -R mysql:mysql .
+[root@localhost mysql-5.6.13]# ./scripts/mysql_install_db \
+&gt; --user=mysql \
+&gt; --basedir=/usr/local/mysql-5.6.13/ \
+&gt; --datadir=/usr/local/mysql-5.6.13/data/
+  Installing MySQL system tables...
+  ...
+  OK
+  Filling help tables...
+  ...
+  OK
+[root@localhost mysql-5.6.13]# chown -R root:root .
+[root@localhost mysql-5.6.13]# chown -R mysql:mysql data/
+</code></pre>
+<p>　データディレクトリやソケットファイルの格納ディレクトリなどが、実行ユーザにとって適当な権限設定になっていることを確認してください。
+Reference Manualには<a href="http://dev.mysql.com/doc/refman/5.6/en/mysql-install-db-problems.html">Problems Running mysql_install_db</a>というページも用意されています。</p>
+<p>　続いて、<code>PREFIX/bin/mysqld_safe</code>をつかってMySQLサーバの起動を試します。</p>
+<pre><code>[root@localhost mysql-5.6.13]# ./bin/mysqld_safe --user=mysql &amp;
+  130806 19:18:40 mysqld_safe Logging to '/usr/local/mysql-5.6.13/data/localhost.localdomain.err'.
+  130806 19:18:40 mysqld_safe Starting mysqld daemon with databases from /usr/local/mysql-5.6.13/data
+</code></pre></li>
+<li><h3>rootパスワードの設定（bin/mysql_secure_installation）</h3>
+<p>　<code>PREFIX/bin/mysql_secure_installation</code>をつかってrootパスワードを設定します。
+パスワード設定の他、匿名ユーザの削除やリモートからログインできるrootの削除などの操作を対話形式で指示できます。</p>
+<pre><code>[root@localhost mysql-5.6.13]# ./bin/mysql_secure_installation
+NOTE: RUNNING ALL PARTS OF THIS SCRIPT IS RECOMMENDED FOR ALL MySQL
+      SERVERS IN PRODUCTION USE!  PLEASE READ EACH STEP CAREFULLY!
+</code></pre>
+<p>　現時点のMySQL rootユーザのパスワードを入力して対話を開始します。
+初期化して直後の状態であれば、まだパスワードは設定されていないので、そのままEnterをおします。</p>
+<pre><code>In order to log into MySQL to secure it, we'll need the current
+password for the root user.  If you've just installed MySQL, and
+you haven't set the root password yet, the password will be blank,
+so you should just press enter here.
+Enter current password for root (enter for none):
+OK, successfully used password, moving on...
+</code></pre>
+<p>　MySQL rootユーザのパスワードを設定します。</p>
+<pre><code>Setting the root password ensures that nobody can log into the MySQL
+root user without the proper authorisation.
+Set root password? [Y/n] y
+New password:
+Re-enter new password:
+Password updated successfully!
+Reloading privilege tables..
+ ... Success!
+</code></pre>
+<p>　匿名ユーザを削除するかどうかを選択します。</p>
+<pre><code>By default, a MySQL installation has an anonymous user, allowing anyone
+to log into MySQL without having to have a user account created for
+them.  This is intended only for testing, and to make the installation
+go a bit smoother.  You should remove them before moving into a
+production environment.
+Remove anonymous users? [Y/n] y
+ ... Success!
+</code></pre>
+<p>　外部のホストからrootへのログインを禁止するかどうかを選択します。</p>
+<pre><code>Normally, root should only be allowed to connect from 'localhost'.  This
+ensures that someone cannot guess at the root password from the network.
+Disallow root login remotely? [Y/n] y
+ ... Success!
+</code></pre>
+<p>　初期化の時点で作成されたtestデータベースを削除するかどうかを選択します。通常、使用しないデータベースです。</p>
+<pre><code>By default, MySQL comes with a database named 'test' that anyone can
+access.  This is also intended only for testing, and should be removed
+before moving into a production environment.
+Remove test database and access to it? [Y/n] y
+ - Dropping test database...
+  ... Success!
+   - Removing privileges on test database...
+    ... Success!
+</code></pre>
+<p>　ここまでのユーザ権限に対する変更を直ちに適用するかどうかを選択します。</p>
+<pre><code>Reloading the privilege tables will ensure that all changes made so far
+will take effect immediately.
+Reload privilege tables now? [Y/n] y
+ ... Success!
+All done!  If you've completed all of the above steps, your MySQL
+installation should now be secure.
+Thanks for using MySQL!
+Cleaning up...
+</code></pre></li>
+</ul>
+<p>　そのほか、必要に応じて、my.cnfの設定、起動スクリプトの設置、自動起動の設定、実行バイナリへのパスの設定を行なってください。
+ソースコードのアーカイブには、標準のLSB起動スクリプトが用意されています。</p>
+<pre><code>  [root@localhost mysql-5.6.13]# cp support-files/mysql.server /etc/init.d/mysqld
+</code></pre>
+<h3>動作を確認する</h3>
+<p>  MySQLクライアントからMySQLサーバへアクセスして動作を確認してみます。</p>
+<pre><code>[root@localhost mysql-5.6.13]# ./bin/mysql -u root -p -h localhost
+  Enter password:
+  Welcome to the MySQL monitor.  Commands end with ; or \g.
+  Your MySQL connection id is 1
+  Server version: 5.6.13 Source distribution
+  Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+  Oracle is a registered trademark of Oracle Corporation and/or its
+  affiliates. Other names may be trademarks of their respective
+  owners.
+  Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+mysql&gt; SELECT version();
+  +-----------+
+  | version() |
+  +-----------+
+  | 5.6.13    |
+  +-----------+
+  1 row in set (0.00 sec)
+</code></pre>
+<h3>参考</h3>
+<ul>
+<li><a href="http://dev.mysql.com/doc/refman/5.6/en/index.html">MySQL :: MySQL 5.6 Reference Manual</a></li>
+</ul>
+<h3>関連記事</h3>
+<ul>
+<li><a href="http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-apache-http-server-2-dot-4-6/">Apache HTTP Server 2.4.6をインストールする（ソースからビルドする方法）</a></li>
+<li><a href="http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-php-5-dot-5-1/">PHP 5.5.1をインストールする（ソースからビルドする方法）</a></li>
+<li><a href="http://momoto.github.io/blog/2013/04/06/install-centos-6-dot-4-i386-netinstall/">CentOS 6.4をインストールする</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Apache HTTP Server 2.4.6をインストールする（ソースからビルドする方法）]]></title>
+    <link href="http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-apache-http-server-2-dot-4-6/"/>
+    <updated>2013-07-31T22:10:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-apache-http-server-2-dot-4-6</id>
+    <content type="html"><![CDATA[<p>　Apache HTTP Server 2.4.6をソースコードからビルドして、Unix系システムへインストールする手引きです。
+この記事ではCentOS 6.4環境でインストールの例を示しますが、自身でソースからビルドする方法は特定のLinuxディストリビューションに依りません。</p>
+<!-- more -->
+<p>　インストールを行うユーザは、インストール先ディレクトリに対して書込み権限をもっている必要があります。/usr/local/* にインストールする場合、通常、root権限が必要です。</p>
+<ol>
+<li><h3>ソースコードを取得する</h3>
+<p>　ソースコードをインストールするマシンに用意します。
+インターネットからダウンロードする場合、<a href="http://httpd.apache.org/download.cgi#apache24" title="Download - The Apache HTTP Server Project">httpd.apache.org</a>にソースコードのURLが示されています。
+bzip2、gzipのアーカイブが用意されていますので、マシンで解凍・展開できる形式を選択してください。</p>
+<p>　ダウンロードにはcURLやGNU Wgetなどのダウンロードマネージャやウェブブラウザを使用します。
+次の例では、cURLをつかって<a href="http://ftp.riken.jp/net/apache/" title="Software archives at ftp.riken.jp">理化学研究所</a>のミラーからhttpd-2.4.6.tar.gzをダウンロードします。</p>
+<pre><code>[root@localhost ~]# curl -LsO http://ftp.riken.jp/net/apache//httpd/httpd-2.4.6.tar.gz
+</code></pre>
+<p>　取得したアーカイブファイルは適宜、解凍・展開して、ワーキングディレクトリを移動させます。
+<a href="http://www.pathname.com/fhs/pub/fhs-2.3.html#USRLOCALLOCALHIERARCHY" title="Filesystem Hierarchy Standard 2.3">FHS</a>に従うシステムであれば、独自にインストールするソフトウェアのためのディレクトリ /usr/local が予め用意されていますので、この記事ではソースコードを /usr/local/src に配置してインストールをすすめます。</p>
+<pre><code>[root@localhost ~]# tar xfz httpd-2.4.6.tar.gz -C /usr/local/src/
+[root@localhost ~]# cd /usr/local/src/httpd-2.4.6/
+[root@localhost httpd-2.4.6]# 
+</code></pre></li>
+<li><h3>インストール要件を満たす</h3>
+<p>　マシンがインストールの要件を満たしている必要があります。
+要件については<a href="http://httpd.apache.org/docs/2.4/en/install.html" title="Compiling and Installing - Apache HTTP Server">Documentation</a>に詳しい説明があります。</p>
+<ul>
+<li><p>Cコンパイラ</p>
+<pre><code>[root@localhost ~]# yum install gcc
+</code></pre></li>
+<li><p>Make</p>
+<pre><code>[root@localhost ~]# yum install make
+</code></pre></li>
+<li><p><a href="http://apr.apache.org/" title="The Apache Portable Runtime Project">APR</a> &ndash; 予めシステムに備わっていない場合（またはシステムが提供するバージョンを使用したくない場合）は<a href="http://apr.apache.org/download.cgi" title="Download - The Apache Portable Runtime Project">apr.apache.org</a>から取得してhttpdに含めてビルドします。取得したAPRとAPR-Utilはバージョン番号を取り除いて&#8221;./srclib/apr&#8221;と&#8221;./srclib/apt-util&#8221;に展開します。</p>
+<pre><code>[root@localhost httpd-2.4.6]# cd srclib/
+[root@localhost srclib]# curl -Lso apr-1.4.8.tar.gz http://ftp.jaist.ac.jp/pub/apache//apr/apr-1.4.8.tar.gz
+[root@localhost srclib]# tar xfz apr-1.4.8.tar.gz
+[root@localhost srclib]# mv apr-1.4.8/ apr
+[root@localhost srclib]# curl -Lso apr-util-1.5.2.tar.gz http://ftp.jaist.ac.jp/pub/apache//apr/apr-util-1.5.2.tar.gz
+[root@localhost srclib]# tar xfz apr-util-1.5.2.tar.gz
+[root@localhost srclib]# mv apr-util-1.5.2/ apr-util
+</code></pre></li>
+<li><p>PCREライブラリ &ndash; <a href="http://www.pcre.org/" title="PCRE - Perl Compatible Regular Expressions">www.pcre.org</a>やディストリビューションからインストールします。</p>
+<pre><code>[root@localhost httpd-2.4.6]# yum install pcre-devel
+</code></pre></li>
+</ul>
+</li>
+<li><h3>ビルドファイルを作成する</h3>
+<p>　configureをつかってビルドファイルを作成します。configureにオプションを与えることで、インストール先のディレクトリや有効にするモジュールを調整できます。
+指定できるオプションについては<code>configure --help</code>や<a href="http://httpd.apache.org/docs/2.4/en/programs/configure.html">Documentation</a>を参照してください。
+ビルドの要件を満たしていない場合、configureの処理は中断されます。</p>
+<p>　例えば、インストール先のディレクトリを /usr/local/httpd-2.4.6 として、
+<a href="http://httpd.apache.org/docs/2.4/en/dso.html" title="Dynamic Shared Object (DSO) Support - Apache HTTP Server">DSOサポート</a>を有効、<a href="http://httpd.apache.org/docs/2.4/en/mpm.html" title="Multi-Processing Modules (MPMs) - Apache HTTP Server">MPM</a>を<a href="http://httpd.apache.org/docs/2.4/en/mod/prefork.html" title="prefork - Apache HTTP Server">prefork</a>と明示して、
+新たに取得したAPRを使用する場合は次のようにconfigureを実行します。</p>
+<pre><code>[root@localhost httpd-2.4.6]# ./configure --prefix=/usr/local/httpd-2.4.6 --enable-so --with-mpm=prefork --with-included-apr
+</code></pre>
+<p>　次に、configureのエラー例をいくつか示します。</p>
+<ul>
+<li><h4>APR not found.</h4>
+<pre><code>checking for APR... no
+configure: error: APR not found.  Please read the documentation.
+</code></pre>
+<p>　APRが正しくインストールされているか確認してください。</p></li>
+<li><h4>no acceptable C compiler found in $PATH</h4>
+<pre><code>checking for gcc... no
+checking for cc... no
+checking for cl.exe... no
+configure: error: in `/usr/local/src/httpd-2.4.6/srclib/apr':
+configure: error: no acceptable C compiler found in $PATH
+</code></pre>
+<p>　Cコンパイラが正しくインストールされているか確認してください。</p></li>
+<li><h4>pcre-config for libpcre not found.</h4>
+<pre><code>checking for pcre-config... false
+configure: error: pcre-config for libpcre not found. PCRE is required and available from http://pcre.org/
+</code></pre>
+<p>　PCREライブラリが正しくインストールされているか確認してください。</p></li>
+</ul>
+<p>　configureの処理が終了してMakefileが作成されていれば、ビルドの段階へすすみます。</p></li>
+<li><h3>ビルドとインストール</h3>
+<p>　ビルドとインストールにはmakeを使います。ディスクの容量が充分足りていることを確認してください。</p>
+<pre><code>[root@localhost httpd-2.4.6]# make &amp;&amp; make install
+</code></pre>
+<p>　makeの処理が無事に終了したらインストールは完了です。
+configureの<code>--prefix</code>に指定した位置にファイルが展開されているはずです。PREFIXを指定していなかった場合は&#8221;/usr/local/apache2&#8221;になります。</p>
+<pre><code>[root@localhost httpd-2.4.6]# /usr/local/httpd-2.4.6/bin/httpd -v
+Server version: Apache/2.4.6 (Unix)
+</code></pre></li>
+</ol>
+<h2>インストール後</h2>
+<p>　必要に応じて、httpd.confの設定、起動スクリプトの設置、自動起動の設定、実行バイナリへのパスの設定を行なってください。
+ソースコードのアーカイブには、標準のLSB起動スクリプトが用意されています。</p>
+<pre><code>[root@localhost httpd-2.4.6]# cp /usr/local/src/httpd-2.4.6/build/rpm/httpd.init /etc/init.d/httpd
+</code></pre>
+<h3>動作を確認する</h3>
+<p>　最後に、ウェブサーバの動作を少し確認してみます。
+ウェブサーバにとって外部のホストから動作を確認する場合はファイアウォール等の制限を受けやすいので、まずはインストールを行ったマシンからループバックで確認するとネットワークアクセスの問題と区別できます。</p>
+<p>　FirefoxやLynxなどのブラウザや、GNU WgetやcURLをつかって、自身に対してHTTPリクエストを送信します（Wget、cURLを使う場合、HTMLの描写はされません）。
+うまく動作していればドキュメントルートに予め用意されているHTMLファイルを応答するはずです。</p>
+<pre><code>[root@localhost ~]# lynx localhost
+</code></pre>
+<p><img src="http://momoto.github.io/blog/images/2013-07-31-guide-to-compiling-and-installing-apache-http-server-2-dot-4-6/apache-http-server-works.png" title="LynxでApache HTTP Server 2.4.6の動作を確認する" ></p>
+<p>　ネットワークアクセスを介すると動作が確認できなくなる場合、様々な原因が考えられますが、GNU/LinuxのシステムでよくあるのはiptablesやSELinuxなどのセキュリティによるものです。
+外部からのアクセスを受け入れようとする場合はHTTPのネットワーク通信を許可する必要がありますが、これらの作業は実質、セキュリティ強度を緩和しているので、マシンが接続しているネットワークや記録しているコンテンツをよく確かめて設定するべきです。
+Apache HTTP Serverの領域から少し外れますが、iptablesとSELinuxの設定の確認方法を示します。</p>
+<ul>
+<li><p>　iptablesを使用している場合、パケットフィルタのルールを確認します。
+例えばCentOS 6.4の初期状態では下記のように、ポート80の受信の許可を明示していないため、外部のクライアントからのリクエストに応答できません。</p>
+<pre><code>[root@localhost ~]# iptables --list-rules
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p icmp -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -p tcp -m state --state NEW -m tcp --dport 22 -j ACCEPT
+-A INPUT -j REJECT --reject-with icmp-host-prohibited
+-A FORWARD -j REJECT --reject-with icmp-host-prohibited
+</code></pre>
+<p>　上記のようなルールの場合、<code>-A INPUT -j REJECT --reject-with icmp-host-prohibited</code>の上に、<code>-A INPUT -p tcp -m tcp --dport 80 -j ACCEPT</code>というルールを新しく追加する等の変更が必要になります。
+変更の方法も様々ですが、CentOS 6.4であれば/etc/sysconfig/iptablesを書き換えた後にiptablesを再起動するとルールが再設定されます。</p></li>
+<li><p>　SELinuxを使用している場合、<code>httpd_can_network_connect</code>の値を確認します。</p>
+<pre><code>[root@localhost ~]# getsebool httpd_can_network_connect
+httpd_can_network_connect --&gt; off
+</code></pre>
+<p>　ネットワークを通してウェブサーバを使用する場合は、この値にonを設定します。</p>
+<pre><code>[root@localhost ~]# setsebool -P httpd_can_network_connect on
+</code></pre>
+<p>　<code>httpd_can_network_connect</code>の他、CGIやDBを制限する項目もあるので、用途に応じて適当なポリシーを設定する必要があります。</p></li>
+</ul>
+<h3>参考</h3>
+<ul>
+<li><a href="http://httpd.apache.org/docs/2.4/" title="Apache HTTP Server Version 2.4 Documentation - Apache HTTP Server">Apache HTTP Server Version 2.4 Documentation &ndash; Apache HTTP Server</a></li>
+<li><a href="http://apr.apache.org/" title="The Apache Portable Runtime Project">The Apache Portable Runtime Project</a></li>
+</ul>
+<h3>関連記事</h3>
+<ul>
+<li><a href="http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-mysql-community-server-5-dot-6-13/">MySQL Community Server 5.6.13をインストールする（ソースからビルドする方法）</a></li>
+<li><a href="http://momoto.github.io/blog/2013/07/31/guide-to-compiling-and-installing-php-5-dot-5-1/">PHP 5.5.1をインストールする（ソースからビルドする方法）</a></li>
+<li><a href="http://momoto.github.io/blog/2013/04/06/install-centos-6-dot-4-i386-netinstall/">CentOS 6.4をインストールする</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[getEqualSumSubstring関数の問題を考える]]></title>
+    <link href="http://momoto.github.io/blog/2013/06/30/finding-the-longest-contiguous-equal-sum-substring-of-length-2n/"/>
+    <updated>2013-06-30T00:00:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/06/30/finding-the-longest-contiguous-equal-sum-substring-of-length-2n</id>
+    <content type="html"><![CDATA[<p>　getEqualSumSubstring関数の問題を考えてみます。この問題の出典についてはわかりませんが、Stack Overflowには同問題に関する質問がいくつか寄せられているように、プログラミングの分野では有名な問題であるようです。</p>
+<p>　問題文を日本語に訳してみると、だいたい次のような内容です。</p>
+<blockquote><p>　0以外の数字だけを含む文字列sを引数にとるgetEqualSumSubstring関数を定義します。<br>
+　この関数はsの連続する部分列のうち、長さは2*Nで、左側N個の数字の合計と右側N個の数字の合計が等しくなるような最も長い部分列の長さを表示します。<br>
+　適当な部分列がない場合には0と表示します。</p>
+<p><a href="http://stackoverflow.com/questions/8469407/to-find-the-longest-substring-with-equal-sum-in-left-and-right-in-c">To find the longest substring with equal sum in left and right in C++ &ndash; Stack Overflow</a></p></blockquote>
+<!-- more -->
+<h4>入力例＃１</h4>
+<p>　入力された文字列が123231であるとき、連続する最も長い部分列は123231で、出力する部分列の長さは6です。</p>
+<h4>入力例＃２</h4>
+<p>　入力された文字列が986561517416921217551395112859219257312であるとき、連続する最も長い部分列は656151741692121755139511285921925731で、出力する部分列の長さは36です。</p>
+<h3>解答例</h3>
+<p>　JavaScriptの解答例です。順を追って問題を理解するためにも、文字列sから適当な部分列を抜き出す処理と、抜き出した部分列から適当な部分列を探す処理とで分けて考えてみます。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>function getEqualSumSubstring(s) {
+</span><span class='line'>  var substrings = [], longest = "";
+</span><span class='line'>
+</span><span class='line'>  for (var begin=0; begin&lt;s.length; begin++)
+</span><span class='line'>    for (var end=begin+2; end&lt;=s.length; end=end+2)
+</span><span class='line'>      substrings[substrings.length] = s.slice(begin, end);
+</span><span class='line'>
+</span><span class='line'>  for (var i in substrings)
+</span><span class='line'>    if (substrings[i].length &lt;= longest.length)
+</span><span class='line'>      continue;
+</span><span class='line'>    else if ((function (s) {
+</span><span class='line'>      var begin=0, end=s.length/2, left=0, right=0;
+</span><span class='line'>      for (begin; begin&lt;end; begin++) {
+</span><span class='line'>        left  += parseInt(s[begin]);
+</span><span class='line'>        right += parseInt(s[end + begin]);
+</span><span class='line'>      }
+</span><span class='line'>      return (left === right);
+</span><span class='line'>    })(substrings[i]))
+</span><span class='line'>      longest = substrings[i];
+</span><span class='line'>
+</span><span class='line'>  return longest.length;
+</span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
+<p>　まず、出力するべき部分列の長さは偶数であることが問題文からわかるので、長さが偶数になる部分列だけをsから抜き出して配列に格納しておきます。
+このときに抜き出す部分列の個数は<code>floor((sの長さ+1)/2) * floor(sの長さ/2)</code>となればよさそうです。
+次に、部分列の左側半分の数字の合計と右側半分の数字の合計が等しくなるような部分列の最も長いものを配列から探して、その長さを出力します。</p>
+<h4>別解</h4>
+<p>　上記の解答例は、文字列sの一文字目から部分列が短い順に適当な部分列を探しているので、この点にリファクタリングの余地がありそうです。
+最も長い部分列を効率よく見つけるために、部分列が長い順に適当な部分列を探すように改善を考えてみます。</p>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>function getEqualSumSubstring(s) {
+</span><span class='line'>  var substring="";
+</span><span class='line'>
+</span><span class='line'>  for (var end=s.length-s.length%2; end&gt;0; end=end-2)
+</span><span class='line'>    for (var begin=0; s.length&gt;=(begin+end); begin++)
+</span><span class='line'>      if ((function (s) {
+</span><span class='line'>        var begin=0, end=s.length/2, left=0, right=0;
+</span><span class='line'>        for (begin; begin&lt;end; begin++) {
+</span><span class='line'>          left  += parseInt(s[begin]);
+</span><span class='line'>          right += parseInt(s[end + begin]);
+</span><span class='line'>        }
+</span><span class='line'>        return (left === right);
+</span><span class='line'>      })(substring = s.slice(begin, (end+begin))))
+</span><span class='line'>        return substring.length;
+</span><span class='line'>
+</span><span class='line'>  return 0;
+</span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
+<p>　この別解では、部分列が長い順に適当な部分列を探しているので、候補の部分列を配列に格納する必要がなくなりました。部分列の左右の和が等しいかどうかを調べる部分は変更していません。</p>
+<h4>実装</h4>
+<p>　上記の解答例にHTMLのユーザインタフェースを加えた実装例です。</p>
+<p><form id="finding-the-longest-contiguous-equal-sum-substring-of-length-2n">
+<label>入力 <textarea rows="4" style="width: 100%;"></textarea></label>
+<label>出力 <output><textarea rows="4" style="width: 100%;" readonly=True></textarea></output></label></p>
+<script> (function(){
+function getEqualSumSubstring(s) {
+  var substring="";
+  for (var end=s.length-s.length%2; end>0; end=end-2)
+    for (var begin=0; s.length>=(begin+end); begin++)
+      if ((function (s) {
+        var begin=0, end=s.length/2, left=0, right=0;
+        for (begin; begin<end; begin++) {
+          left  += parseInt(s[begin]);
+          right += parseInt(s[end + begin]);
+        }
+        return (left === right);
+      })(substring = s.slice(begin, (end+begin))))
+        return substring.length;
+  return 0;
+}
+function eventhandler(event) {
+  if (text === i.value && event.type !== "change") return;
+  else o.value = getEqualSumSubstring(text = i.value);
+}
+var text = "";
+var f = document.getElementById("finding-the-longest-contiguous-equal-sum-substring-of-length-2n");
+var i = f.getElementsByTagName("textarea")[0];
+var o = f.getElementsByTagName("textarea")[1];
+i.onkeydown = eventhandler;
+i.onkeyup   = eventhandler;
+})(); </script>
+<p></form></p>
+<h3>参考</h3>
+<ul>
+<li><a href="http://stackoverflow.com/questions/8469407/to-find-the-longest-substring-with-equal-sum-in-left-and-right-in-c">To find the longest substring with equal sum in left and right in C++ &ndash; Stack Overflow</a></li>
+<li><a href="https://developer.mozilla.org/ja/docs/Web/JavaScript/Reference/Global_Objects/Array/slice">Array.slice &ndash; JavaScript | MDN</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Debian 7.1.0をインストールする]]></title>
+    <link href="http://momoto.github.io/blog/2013/06/23/install-debian-7-dot-1-0-amd64-netinst/"/>
+    <updated>2013-06-23T05:54:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/06/23/install-debian-7-dot-1-0-amd64-netinst</id>
+    <content type="html"><![CDATA[<p>　Debian 7.1.0をインストールした手順の記録です。インストールメディアはdebian-7.1.0-amd64-netinst.isoを使用しています。インターネットへ接続できる環境を前提にしています。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/01.png" width="400" title="インストーラの起動" ></p>
+<!-- more -->
+<ol>
+<li><h3>言語、地域、キーボードの選択</h3>
+<ol>
+<li><p>　インストーラで使用される言語とベースシステムに含める言語パッケージを選択します。この記事では日本語を選択してインストールをすすめます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/02-01.png" width="400" title="言語の選択" ></p></li>
+<li><p>　次に、地域を選択します。先に選択した言語に関連する地域にあらかじめ焦点があてられています。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/02-02.png" width="400" title="場所の選択" ></p></li>
+<li><p>　続いて、キーボード配列を選択します。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/02-03.png" width="400" title="キーボードの設定" ></p></li>
+</ol>
+</li>
+<li><h3>ネットワークの設定</h3>
+<ol>
+<li><p>ホスト名を入力します。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/03-01.png" width="400" title="ホスト名の入力" ></p></li>
+<li><p>ドメイン名を入力します。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/03-02.png" width="400" title="ドメイン名の入力" ></p></li>
+</ol>
+</li>
+<li><h3>ユーザとパスワードのセットアップ</h3>
+<ol>
+<li><p>rootのパスワードを入力します。確認のため入力は二度、必要です。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/04-01.png" width="400" title="rootのパスワードを設定" ></p></li>
+<li><p>一般ユーザの名前を入力します。名前は次の画面でも入力しますが、ここで入力する名前はGUIのログイン画面等で表示されます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/04-02.png" width="400" title="非管理者権限ユーザの名前（本名）を入力" ></p></li>
+<li><p>続いて、ホームディレクトリのディレクトリ名にもなるユーザ名を入力します。前の画面で入力した名前よりも、使用出来る文字は制限されます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/04-03.png" width="400" title="非管理者権限ユーザの名前（ログイン名）を入力" ></p></li>
+<li><p>一般ユーザのパスワードを入力します。rootのときと同様に入力は二度、必要です。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/04-04.png" width="400" title="非管理者権限ユーザのパスワードを設定" ></p></li>
+</ol>
+</li>
+<li><h3>ディスクのパーティション分割</h3>
+<p>　ディスクのパーティションを設定します。パーティション分割にはガイド（自動）で設定する方法と、手動で設定する方法があります。</p>
+<ol>
+<li><p>　パーティション分割をガイドで行うか、手動で行うかを選択します。ガイドで行う場合はさらに、LVMを設定するかどうか、LVMを設定する場合はLUKSによる暗号化を設定するかどうかを選択します。
+この記事では「ガイド &ndash; ディスク全体を使う」でインストールを進めます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/05-01.png" width="400" title="パーティショニングを自動で行うか、手動で行うかを選択する" ></p></li>
+<li><p>　パーティショニングの対象となるストレージデバイスを選択します。デバイスを正しく認識していれば、この画面の選択肢に現れているはずです。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/05-02.png" width="400" title="パーティショニングの対象になるストレージデバイスを選択する" ></p></li>
+<li><p>　ガイドに従ってパーティション構成を選択します。ここで選択できるものより複雑なパーティショニングが必要な場合は手動で設定しなければなりません。この記事では「すべてのファイルを１つのパーティションに」を選択してインストールをすすめます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/05-03.png" width="400" title="パーティション構成を選択する" ></p></li>
+<li><p>　ここまでのパーティション設定を確認します。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/05-04.png" width="400" title="パーティション設定を確認する" ></p></li>
+<li><p>　ストレージデバイスに対する書込みの最後の確認です。書込みを行うとそれまで記録されていた情報は削除されますので、対象デバイスとパーティションをよく確かめて画面をすすめてください。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/05-05.png" width="400" title="ストレージデバイスに対する書込みを確認する" ></p></li>
+</ol>
+</li>
+<li><h3>パッケージマネージャの設定</h3>
+<ul>
+<li><p>　Debianアーカイブミラーをホストしている地域を選択します。「自国でさえ最適の選択とは限らない」とありますが、国内で利用する場合においては「日本」を選択するのが最も適当です。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/06-01.png" width="400" title="Debianアーカイブミラーをホストしている地域を選択する" ></p></li>
+<li><p>　選択した地域からミラーサーバを選択します。<a href="ftp://ftp.jp.debian.org/">ftp.jp.debian.org</a>と<a href="ftp://ftp.jaist.ac.jp/">ftp.jaist.ac.jp</a>については、管理者のブログが公開されています（<a href="http://debiancdn.wordpress.com/">debiancdn | AWS, Content Delivery Network and Debian</a>、<a href="http://ftp-admin.blogspot.jp/">ftp-adminの憂鬱</a>）。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/06-02.png" width="400" title="Debianアーカイブミラーサーバを選択する" ></p></li>
+<li><p>　HTTPプロキシをつかう必要がある場合はプロキシ情報を入力します。必要ない場合は空のまま画面をすすめます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/06-03.png" width="400" title="HTTPプロキシ情報を入力する" ></p></li>
+<li><p>　Debianパッケージ利用調査へ参加するかどうかを選択します。この調査結果は<a href="http://popcon.debian.org/">Debian Popularity Contest</a>で公開されています。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/06-04.png" width="400" title="Debianパッケージ利用調査への参加" ></p></li>
+</ul>
+</li>
+<li><h3>ソフトウェアの選択</h3>
+<p>　ベースシステムと同時にインストールするソフトウェアスイートを選択します。ここで表示されるリストは<a href="http://wiki.debian.org/tasksel">tasksel</a>によって抽象化された「タスク」です。
+どのパッケージをインストールするか、を具体的に指定する必要がある場合（インストールしたいのはmysql-serverではなくpostgresqlである等）は、ここでは選択せずに、ベースシステムのインストール後にインストールします。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/07.png" width="400" title="ソフトウェアの選択" ></p></li>
+<li><h3>ブートローダのインストール</h3>
+<p>　GRUBブートローダをインストールします。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/08.png" width="400" title="ブートローダのインストール" ></p></li>
+<li><h3>インストールの完了</h3>
+<p>　インストールが完了したら、システムを再起動します。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-debian-7.1.0-amd64-netinst/09.png" width="400" title="インストールの完了" ></p></li>
+</ol>
+<h3>参考</h3>
+<ul>
+<li><a href="http://www.debian.org/releases/stable/installmanual">Debian wheezy &mdash; インストールガイド</a></li>
+</ul>
+<h3>関連記事</h3>
+<ul>
+<li><a href="http://momoto.github.io/blog/2013/06/23/installing-ubuntu-13-dot-04-server-amd64/">Ubuntu Server 13.04をインストールする</a></li>
+<li><a href="http://momoto.github.io/blog/2013/04/06/install-centos-6-dot-4-i386-netinstall/">CentOS 6.4をインストールする</a></li>
+<li><a href="http://momoto.github.io/blog/2013/03/16/install-x86-minimal-20121213/">Gentoo Linuxをインストールする</a></li>
+<li><a href="http://momoto.github.io/blog/2013/01/05/install-arch-linux/">Arch Linux 2012.12.01をインストールする</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Ubuntu Server 13.04をインストールする]]></title>
+    <link href="http://momoto.github.io/blog/2013/06/23/installing-ubuntu-13-dot-04-server-amd64/"/>
+    <updated>2013-06-23T00:00:00+09:00</updated>
+    <id>http://momoto.github.io/blog/2013/06/23/installing-ubuntu-13-dot-04-server-amd64</id>
+    <content type="html"><![CDATA[<p>　Ubuntu Server 13.04をインストールした手順の記録です。インストールイメージはubuntu-13.04-server-amd64.isoを使用しています。</p>
+<!-- more -->
+<ol>
+<li><h4>インストールイメージの起動</h4>
+<p>　インストールイメージは<a href="http://releases.ubuntu.com/13.04/">releases.ubuntu.com</a>で配布されています。
+光ディスクやUSBメモリ等のメディアをつかって、取得したインストールイメージからコンピュータを起動してください。
+Ubuntuのドキュメントには、インストールイメージのDVDへの書き込み方やUSBメモリから起動する方法を説明するページが用意されています。</p>
+<ul>
+<li><a href="http://www.ubuntu.com/download/desktop/try-ubuntu-before-you-install">How to run Ubuntu from a DVD or USB stick</a></li>
+</ul>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/01.png" width="500" title="Ubuntu Server 13.04 インストーラの起動" ></p></li>
+<li><h4>言語、地域、キーボードの設定</h4>
+<ul>
+<li><p>　インストーラでつかわれる言語を選択します。ここで選択した言語はこれからインストールするUbuntuの標準言語にもなります。日本語を選択することもできますが、この記事では英語を選択してインストールをすすめます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/02-01.png" width="500" title="言語の選択" ></p>
+<p>　適当な言語を選択するか、または地域化を行わない場合はC (No localization)を選択します。</p></li>
+<li><p>　次に、地域を選択します。ここで選択した地域がタイムゾーンの基準になります。</p>
+<p><img class="left" src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/02-02.png" width="300" title="選択した「言語」に基づく地域の一覧" >
+<img class="left" src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/02-03.png" width="300" title="地域の選択" >
+<img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/02-04.png" width="300" title="国の選択" ></p></li>
+<li><p>　次に、キーボード配列を選択します。</p>
+<p><img class="left" src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/02-05.png" width="300" title="キーボード配列の検出" >
+<img class="left" src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/02-06.png" width="300" title="使用しているキー配列が一般的な国を選択" >
+<img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/02-07.png" width="300" title="キーボード配列の選択" ></p></li>
+<li><p>　適当なLocale情報がない場合（上記のように、言語は英語、地域は日本を選択したような場合）、有効なLocales情報から選ぶことができます。ここではen_US.UTF-8を選択します。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/02-08.png" width="500" title="Locale情報の選択" ></p>
+<p>　ここまでに選択した地域情報は/etc/default/localeに設定されます。インストール後に設定を変更する場合は<a href="http://packages.ubuntu.com/raring/locales">Locales</a>をつかいます。</p></li>
+</ul>
+</li>
+<li><h4>ネットワークの設定</h4>
+<p>　ネットワークインタフェースの自動検出の後、ホスト名を設定します。ホスト名は/etc/hostnameに設定されます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/03.png" width="500" title="ホスト名の設定" ></p>
+<p>　インストール後に設定を変更する場合は<a href="http://packages.ubuntu.com/raring/hostname">hostname</a>をつかいます。</p></li>
+<li><h4>ユーザとパスワードの設定</h4>
+<p>　ユーザ名、ログイン名、パスワードを設定します。ユーザ名は<a href="http://manpages.ubuntu.com/manpages/raring/en/man1/pinky.1.html">pinky</a>の書式で、ログイン名とともに/etc/passwdに設定されます。</p>
+<p><img class="left" src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/04-01.png" width="300" title="ユーザ名の設定" >
+<img class="left" src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/04-02.png" width="300" title="ログイン名の設定" >
+<img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/04-03.png" width="300" title="パスワードの設定" ></p>
+<p>　ホームディレクトリを暗号化するかどうかを選択します。<a href="https://help.ubuntu.com/13.04/serverguide/ecryptfs.html">eCryptfs</a>による暗号化のようです。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/04-04.png" width="500" title="ホームディレクトリの暗号化" ></p></li>
+<li><h4>時刻の設定</h4>
+<p>　タイムゾーンを設定します。タイムゾーン情報は/etc/timezoneに設定されます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/05.png" width="500" title="タイムゾーンの設定" ></p>
+<p>　インストール後に設定を変更する場合は<code>dpkg-reconfigure tzdata</code>をつかいます。</p></li>
+<li><h4>ディスクのパーティション分割</h4>
+<p>　ディスクのパーティションを設定します。パーティション分割にはガイド（自動）で設定する方法と、手動で設定する方法があります。</p>
+<ol>
+<li><p>　パーティション分割をガイドで行うか、手動で行うかを選択します。ガイドで行う場合はさらに、LVMを設定するかどうか、LVMを設定する場合はLUKSによる暗号化を設定するかどうかを選択します。
+この記事では&#8221;Guided &ndash; use entire disk and set up LVM&#8221;を選択してインストールをつづけます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/06-01.png" width="300" title="パーティショニング方法の選択" ></p></li>
+<li><p>　パーティショニングの対象となるストレージデバイスを選択します。デバイスを正しく認識していれば、この画面の選択肢に現れているはずです。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/06-02.png" width="300" title="パーティショニング対象のストレージデバイスの選択" ></p></li>
+<li><p>　LVMを設定する前に、パーティションテーブルの変更をディスクに書き込みます。書込み対象のデバイスをよく確かめて次の画面へすすんでください。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/06-03.png" width="300" title="パーティションテーブルの変更の書込み" ></p></li>
+<li><p>　LVMのボリュームグループ（VG）に割り当てる容量を指定します。GB単位で指定するか、パーセンテージまたは<code>max</code>などで指定できます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/06-04.png" width="300" title="ボリューム・グループ（VG）に割り当てる容量の指定" ></p></li>
+<li><p>　ここまでに設定したパーティションとマウントポイントを確認します。設定を終了し、変更を書き込むには Finish partitioning and write changes to disk を選択します。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/06-05.png" width="300" title="パーティションとマウントポイントの確認" ></p></li>
+<li><p>　ストレージデバイスに対する書込みを確認します。書込みを行うとそれまで記録されていた情報は削除されますので、対象デバイスとパーティションをよく確かめて画面をすすめてください。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/06-06.png" width="300" title="ストレージデバイスへの書込みの確認" ></p></li>
+</ol>
+</li>
+<li><h4>パッケージマネージャの設定</h4>
+<p>　HTTPプロキシをつかう必要がある場合はプロキシ情報を入力します。必要ない場合は空のまま画面をすすめます。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/07-01.png" width="500" title="HTTPプロキシの設定" ></p>
+<p>　アップデートを自動で適用するかどうかを選択します。また、Canonical社の<a href="https://landscape.canonical.com/">Landscape</a>を使用する場合の選択肢も用意されています。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/07-02.png" width="500" title="自動アップデートの設定" ></p></li>
+<li><h4>ソフトウェアの選択</h4>
+<p>　ベースシステムと同時にインストールするソフトウェアスイートを選択します。ここで表示されるリストは<a href="http://packages.ubuntu.com/raring/tasksel">tasksel</a>によって抽象化された「タスク」です。
+どのパッケージをインストールするか、を具体的に指定する必要がある場合（インストールしたいのはmysql-serverではなくpostgresqlである等）は、ここでは選択せずに、ベースシステムのインストール後にインストールします。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/08.png" width="500" title="追加ソフトウェアの選択" ></p></li>
+<li><h4>ブートローダのインストール</h4>
+<p>　GRUBブートローダをインストールします。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/09.png" width="500" title="GRUBブートローダのインストール" ></p></li>
+<li><h4>インストールの完了</h4>
+<p>　インストールが完了したら、システムを再起動します。</p>
+<p><img src="http://momoto.github.io/blog/images/2013-06-23-installing-ubuntu-13-dot-04-server-amd64/10.png" width="500" title="インストールの完了" ></p></li>
+</ol>
+<h2>参考</h2>
+<ul>
+<li><a href="https://help.ubuntu.com/13.04/">Documentation for Ubuntu 13.04</a></li>
+</ul>
+<h2>関連記事</h2>
+<ul>
+<li><a href="http://momoto.github.io/blog/2013/06/23/install-debian-7-dot-1-0-amd64-netinst/">Debian 7.1.0をインストールする</a></li>
+<li><a href="http://momoto.github.io/blog/2013/04/06/install-centos-6-dot-4-i386-netinstall/">CentOS 6.4をインストールする</a></li>
+<li><a href="http://momoto.github.io/blog/2013/03/16/install-x86-minimal-20121213/">Gentoo Linuxをインストールする</a></li>
+<li><a href="http://momoto.github.io/blog/2013/01/05/install-arch-linux/">Arch Linux 2012.12.01をインストールする</a></li>
+</ul>
+]]></content>
+  </entry>
+  
+</feed>
